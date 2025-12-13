@@ -117,10 +117,8 @@ const LocationPicker = ({
 
       setLocationSuccess(true);
       toast({
-        title: "Localização obtida!",
-        description: address.road 
-          ? `Endereço encontrado: ${address.road}${address.house_number ? ', ' + address.house_number : ''}`
-          : "Verifique se os dados estão corretos."
+        title: "Localização aproximada obtida",
+        description: "Verifique se o bairro e a rua estão corretos. Corrija se necessário."
       });
 
       // Reset success state after 3 seconds
@@ -210,6 +208,12 @@ const LocationPicker = ({
 
       {locationError && (
         <p className="text-destructive text-sm text-center">{locationError}</p>
+      )}
+
+      {locationSuccess && (
+        <p className="text-amber-600 text-sm text-center bg-amber-50 p-2 rounded-lg">
+          ⚠️ O GPS pode ser impreciso. Verifique e corrija os campos abaixo se necessário.
+        </p>
       )}
 
       <div className="space-y-4">
