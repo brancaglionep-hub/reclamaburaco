@@ -363,6 +363,7 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
                   rua={formData.rua}
                   numero={formData.numero}
                   referencia={formData.referencia}
+                  localizacao={formData.localizacao}
                   onBairroChange={(v) => updateField("bairro", v)}
                   onRuaChange={(v) => updateField("rua", v)}
                   onNumeroChange={(v) => updateField("numero", v)}
