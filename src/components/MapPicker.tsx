@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -16,74 +15,82 @@ interface MapPickerProps {
   onPositionChange: (coords: { lat: number; lng: number }) => void;
 }
 
-// Component to handle map clicks and marker dragging
-const DraggableMarker = ({ 
-  position, 
-  onPositionChange 
-}: { 
-  position: { lat: number; lng: number }; 
-  onPositionChange: (coords: { lat: number; lng: number }) => void;
-}) => {
-  const markerRef = useRef<L.Marker>(null);
-
-  useMapEvents({
-    click(e) {
-      onPositionChange({ lat: e.latlng.lat, lng: e.latlng.lng });
-    },
-  });
-
-  const eventHandlers = {
-    dragend() {
-      const marker = markerRef.current;
-      if (marker) {
-        const latlng = marker.getLatLng();
-        onPositionChange({ lat: latlng.lat, lng: latlng.lng });
-      }
-    },
-  };
-
-  return (
-    <Marker
-      draggable
-      eventHandlers={eventHandlers}
-      position={[position.lat, position.lng]}
-      ref={markerRef}
-    />
-  );
-};
-
-// Component to recenter map when position changes
-const RecenterMap = ({ position }: { position: { lat: number; lng: number } }) => {
-  const map = useMap();
-  
-  useEffect(() => {
-    map.setView([position.lat, position.lng], map.getZoom());
-  }, [position, map]);
-
-  return null;
-};
-
 const MapPicker = ({ position, onPositionChange }: MapPickerProps) => {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
+
   // Default to Biguaçu center
   const defaultPosition = { lat: -27.4944, lng: -48.6553 };
   const currentPosition = position || defaultPosition;
 
+  useEffect(() => {
+    if (!mapContainer.current || mapRef.current) return;
+
+    // Initialize map
+    const map = L.map(mapContainer.current, {
+      center: [currentPosition.lat, currentPosition.lng],
+      zoom: 16,
+      scrollWheelZoom: true,
+    });
+
+    // Add tile layer
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+
+    // Add draggable marker
+    const marker = L.marker([currentPosition.lat, currentPosition.lng], {
+      draggable: true,
+    }).addTo(map);
+
+    // Handle marker drag
+    marker.on("dragend", () => {
+      const latlng = marker.getLatLng();
+      onPositionChange({ lat: latlng.lat, lng: latlng.lng });
+    });
+
+    // Handle map click
+    map.on("click", (e: L.LeafletMouseEvent) => {
+      marker.setLatLng(e.latlng);
+      onPositionChange({ lat: e.latlng.lat, lng: e.latlng.lng });
+    });
+
+    mapRef.current = map;
+    markerRef.current = marker;
+    setIsMapReady(true);
+
+    // Cleanup
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      markerRef.current = null;
+    };
+  }, []);
+
+  // Update marker and map view when position changes externally
+  useEffect(() => {
+    if (!isMapReady || !mapRef.current || !markerRef.current || !position) return;
+
+    const currentMarkerPos = markerRef.current.getLatLng();
+    
+    // Only update if position actually changed
+    if (
+      Math.abs(currentMarkerPos.lat - position.lat) > 0.00001 ||
+      Math.abs(currentMarkerPos.lng - position.lng) > 0.00001
+    ) {
+      markerRef.current.setLatLng([position.lat, position.lng]);
+      mapRef.current.setView([position.lat, position.lng], mapRef.current.getZoom());
+    }
+  }, [position, isMapReady]);
+
   return (
-    <div className="w-full h-[250px] rounded-xl overflow-hidden border border-border shadow-sm">
-      <MapContainer
-        center={[currentPosition.lat, currentPosition.lng]}
-        zoom={15}
-        style={{ height: "100%", width: "100%" }}
-        scrollWheelZoom={true}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <DraggableMarker position={currentPosition} onPositionChange={onPositionChange} />
-        <RecenterMap position={currentPosition} />
-      </MapContainer>
-    </div>
+    <div 
+      ref={mapContainer}
+      className="w-full h-[250px] rounded-xl overflow-hidden border border-border shadow-sm"
+      style={{ zIndex: 1 }}
+    />
   );
 };
 
