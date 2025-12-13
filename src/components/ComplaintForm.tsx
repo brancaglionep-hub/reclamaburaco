@@ -4,6 +4,7 @@ import StepIndicator from "./StepIndicator";
 import LocationPicker from "./LocationPicker";
 import ProblemTypeSelector from "./ProblemTypeSelector";
 import MediaUpload from "./MediaUpload";
+import { toast } from "@/hooks/use-toast";
 
 interface FormData {
   nome: string;
@@ -21,6 +22,12 @@ interface FormData {
   localizacao: { lat: number; lng: number } | null;
 }
 
+interface FormErrors {
+  nome?: string;
+  email?: string;
+  telefone?: string;
+}
+
 const stepLabels = ["Dados", "Local", "Problema", "Detalhes", "Mídia", "Enviar"];
 
 const problemLabels: Record<string, string> = {
@@ -32,6 +39,38 @@ const problemLabels: Record<string, string> = {
   outro: "Outro problema"
 };
 
+// Validation functions
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+const validateName = (name: string): boolean => {
+  const trimmed = name.trim();
+  // Must have at least 2 words, each with 2+ chars, only letters and spaces
+  const nameRegex = /^[A-Za-zÀ-ÿ]{2,}(\s+[A-Za-zÀ-ÿ]{2,})+$/;
+  return nameRegex.test(trimmed);
+};
+
+const validatePhone = (phone: string): boolean => {
+  // Optional, but if filled must be valid
+  if (!phone.trim()) return true;
+  // Must match (XX) XXXXX-XXXX or (XX) XXXX-XXXX
+  const phoneRegex = /^\(\d{2}\)\s?\d{4,5}-\d{4}$/;
+  return phoneRegex.test(phone);
+};
+
+const formatPhone = (value: string): string => {
+  // Remove all non-digits
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  
+  if (digits.length === 0) return "";
+  if (digits.length <= 2) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+};
+
 interface ComplaintFormProps {
   onClose: () => void;
 }
@@ -39,6 +78,7 @@ interface ComplaintFormProps {
 const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
   const [step, setStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
   const [formData, setFormData] = useState<FormData>({
     nome: "",
     email: "",
@@ -57,6 +97,44 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
 
   const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (field in errors) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const handlePhoneChange = (value: string) => {
+    const formatted = formatPhone(value);
+    updateField("telefone", formatted);
+  };
+
+  const validateStep1 = (): boolean => {
+    const newErrors: FormErrors = {};
+    
+    if (!validateName(formData.nome)) {
+      newErrors.nome = "Digite seu nome completo (nome e sobrenome)";
+    }
+    
+    if (!validateEmail(formData.email)) {
+      newErrors.email = "Digite um e-mail válido";
+    }
+    
+    if (!validatePhone(formData.telefone)) {
+      newErrors.telefone = "Formato: (48) 99999-9999";
+    }
+    
+    setErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
+      toast({
+        title: "Verifique os campos",
+        description: "Corrija os erros antes de continuar.",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    return true;
   };
 
   const canAdvance = () => {
@@ -73,6 +151,10 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
   };
 
   const handleNext = () => {
+    if (step === 1) {
+      if (!validateStep1()) return;
+    }
+    
     if (step < 6 && canAdvance()) {
       setStep(step + 1);
     }
@@ -227,10 +309,13 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
                     type="text"
                     value={formData.nome}
                     onChange={(e) => updateField("nome", e.target.value)}
-                    placeholder="Digite seu nome"
-                    className="input-large"
+                    placeholder="Digite seu nome completo"
+                    className={`input-large ${errors.nome ? "border-destructive ring-destructive/20" : ""}`}
                     required
                   />
+                  {errors.nome && (
+                    <p className="text-destructive text-sm mt-1">{errors.nome}</p>
+                  )}
                 </div>
 
                 <div>
@@ -240,9 +325,12 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
                     value={formData.email}
                     onChange={(e) => updateField("email", e.target.value)}
                     placeholder="seu@email.com"
-                    className="input-large"
+                    className={`input-large ${errors.email ? "border-destructive ring-destructive/20" : ""}`}
                     required
                   />
+                  {errors.email && (
+                    <p className="text-destructive text-sm mt-1">{errors.email}</p>
+                  )}
                 </div>
 
                 <div>
@@ -250,10 +338,13 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
                   <input
                     type="tel"
                     value={formData.telefone}
-                    onChange={(e) => updateField("telefone", e.target.value)}
+                    onChange={(e) => handlePhoneChange(e.target.value)}
                     placeholder="(48) 99999-9999"
-                    className="input-large"
+                    className={`input-large ${errors.telefone ? "border-destructive ring-destructive/20" : ""}`}
                   />
+                  {errors.telefone && (
+                    <p className="text-destructive text-sm mt-1">{errors.telefone}</p>
+                  )}
                 </div>
               </div>
             )}
