@@ -1,12 +1,14 @@
 import { MapPin, Loader2, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
+import MapPicker from "./MapPicker";
 
 interface LocationPickerProps {
   bairro: string;
   rua: string;
   numero: string;
   referencia: string;
+  localizacao: { lat: number; lng: number } | null;
   onBairroChange: (value: string) => void;
   onRuaChange: (value: string) => void;
   onNumeroChange: (value: string) => void;
@@ -49,6 +51,7 @@ const LocationPicker = ({
   rua,
   numero,
   referencia,
+  localizacao,
   onBairroChange,
   onRuaChange,
   onNumeroChange,
@@ -58,6 +61,7 @@ const LocationPicker = ({
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [locationError, setLocationError] = useState("");
   const [locationSuccess, setLocationSuccess] = useState(false);
+  const [showMap, setShowMap] = useState(false);
 
   const findMatchingBairro = (addressParts: NominatimAddress): string => {
     const possibleBairros = [
@@ -152,6 +156,7 @@ const LocationPicker = ({
         };
         
         onLocationCapture(coords);
+        setShowMap(true);
         
         // Reverse geocode to fill address
         await reverseGeocode(coords.lat, coords.lng);
@@ -178,6 +183,11 @@ const LocationPicker = ({
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
+  };
+
+  const handleMapPositionChange = async (coords: { lat: number; lng: number }) => {
+    onLocationCapture(coords);
+    await reverseGeocode(coords.lat, coords.lng);
   };
 
   return (
@@ -212,8 +222,22 @@ const LocationPicker = ({
 
       {locationSuccess && (
         <p className="text-amber-600 text-sm text-center bg-amber-50 p-2 rounded-lg">
-          ⚠️ O GPS pode ser impreciso. Verifique e corrija os campos abaixo se necessário.
+          ⚠️ Arraste o marcador no mapa para ajustar a localização exata.
         </p>
+      )}
+
+      {/* Interactive Map */}
+      {(showMap || localizacao) && (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium">Marque o local exato no mapa</label>
+          <MapPicker 
+            position={localizacao} 
+            onPositionChange={handleMapPositionChange} 
+          />
+          <p className="text-xs text-muted-foreground text-center">
+            Clique ou arraste o marcador para o local do problema
+          </p>
+        </div>
       )}
 
       <div className="space-y-4">
