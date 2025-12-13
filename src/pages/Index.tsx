@@ -2,16 +2,12 @@ import { useState } from "react";
 import { ArrowRight, MapPin, Shield, Clock, Phone, Building2 } from "lucide-react";
 import heroImage from "@/assets/hero-street.png";
 import ComplaintForm from "@/components/ComplaintForm";
-
 const Index = () => {
   const [showForm, setShowForm] = useState(false);
-
   if (showForm) {
     return <ComplaintForm onClose={() => setShowForm(false)} />;
   }
-
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-primary text-primary-foreground py-3 px-4 lg:py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
@@ -51,18 +47,19 @@ const Index = () => {
             </div>
 
             {/* CTA Button */}
-            <div className="animate-slide-up" style={{ animationDelay: "0.1s" }}>
-              <button
-                onClick={() => setShowForm(true)}
-                className="btn-hero w-full lg:w-auto flex items-center justify-center gap-3"
-              >
+            <div className="animate-slide-up" style={{
+            animationDelay: "0.1s"
+          }}>
+              <button onClick={() => setShowForm(true)} className="btn-hero w-full lg:w-auto flex items-center justify-center gap-3">
                 Informar problema na rua
                 <ArrowRight className="w-5 h-5" />
               </button>
             </div>
 
             {/* Features - Desktop horizontal */}
-            <div className="grid grid-cols-3 gap-4 mt-10 lg:mt-12 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+            <div className="grid grid-cols-3 gap-4 mt-10 lg:mt-12 animate-fade-in" style={{
+            animationDelay: "0.2s"
+          }}>
               <div className="text-center lg:text-left">
                 <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto lg:mx-0 mb-2">
                   <Clock className="w-6 h-6 lg:w-7 lg:h-7 text-primary" />
@@ -85,45 +82,51 @@ const Index = () => {
           </div>
 
           {/* Right Column - Hero Image */}
-          <div className="animate-slide-up" style={{ animationDelay: "0.15s" }}>
+          <div className="animate-slide-up" style={{
+          animationDelay: "0.15s"
+        }}>
             <div className="rounded-3xl overflow-hidden shadow-elevated lg:rounded-[2rem]">
-              <img 
-                src={heroImage} 
-                alt="Ilustração de manutenção de ruas - trabalhadores reparando buraco no asfalto" 
-                className="w-full h-auto"
-              />
+              <img src={heroImage} alt="Ilustração de manutenção de ruas - trabalhadores reparando buraco no asfalto" className="w-full h-auto" />
             </div>
           </div>
         </div>
 
         {/* Types of Problems - Enhanced for desktop */}
-        <div className="mt-12 lg:mt-20 animate-fade-in" style={{ animationDelay: "0.3s" }}>
+        <div className="mt-12 lg:mt-20 animate-fade-in" style={{
+        animationDelay: "0.3s"
+      }}>
           <div className="lg:bg-card lg:rounded-3xl lg:p-10 lg:shadow-card">
             <h2 className="text-lg lg:text-2xl font-semibold text-center mb-4 lg:mb-8 text-foreground">
               Tipos de problemas que você pode informar
             </h2>
             <div className="flex flex-wrap justify-center gap-2 lg:gap-3">
-              {[
-                { label: "Buracos", icon: "🕳️" },
-                { label: "Rua danificada", icon: "🚧" },
-                { label: "Alagamento", icon: "🌧️" },
-                { label: "Desnível", icon: "⚠️" },
-                { label: "Tráfego difícil", icon: "🚗" }
-              ].map((item) => (
-                <span 
-                  key={item.label}
-                  className="px-4 py-2 lg:px-6 lg:py-3 bg-muted text-foreground text-sm lg:text-base rounded-full flex items-center gap-2 hover:bg-primary/10 hover:text-primary transition-colors cursor-default"
-                >
+              {[{
+              label: "Buracos",
+              icon: "🕳️"
+            }, {
+              label: "Rua danificada",
+              icon: "🚧"
+            }, {
+              label: "Alagamento",
+              icon: "🌧️"
+            }, {
+              label: "Desnível",
+              icon: "⚠️"
+            }, {
+              label: "Tráfego difícil",
+              icon: "🚗"
+            }].map(item => <span key={item.label} className="px-4 py-2 lg:px-6 lg:py-3 bg-muted text-foreground text-sm lg:text-base rounded-full flex items-center gap-2 hover:bg-primary/10 hover:text-primary transition-colors cursor-default">
                   <span className="text-lg">{item.icon}</span>
                   {item.label}
-                </span>
-              ))}
+                </span>)}
             </div>
           </div>
         </div>
 
         {/* Stats Section - Desktop only */}
-        <div className="hidden lg:grid lg:grid-cols-3 gap-8 mt-16 animate-fade-in" style={{ animationDelay: "0.4s" }}>
+        <div className="hidden lg:grid lg:grid-cols-3 gap-8 mt-16 animate-fade-in" style={{
+        animationDelay: "0.4s"
+      }}>
           <div className="text-center p-8 bg-card rounded-2xl shadow-card">
             <div className="text-4xl font-bold text-primary mb-2">24h</div>
             <p className="text-muted-foreground">Tempo médio de resposta</p>
@@ -155,15 +158,11 @@ const Index = () => {
               <p className="text-xs text-muted-foreground">
                 Seus dados são protegidos conforme a LGPD.
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                © 2024 Prefeitura de Biguaçu - Todos os direitos reservados
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">© 2026 Prefeitura de Biguaçu - Todos os direitos reservados</p>
             </div>
           </div>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
