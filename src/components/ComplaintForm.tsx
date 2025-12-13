@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Send, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Send, CheckCircle2, Pencil } from "lucide-react";
 import StepIndicator from "./StepIndicator";
 import LocationPicker from "./LocationPicker";
 import ProblemTypeSelector from "./ProblemTypeSelector";
@@ -78,6 +78,12 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
     }
   };
 
+  const goToStep = (targetStep: number) => {
+    if (targetStep >= 1 && targetStep <= 6) {
+      setStep(targetStep);
+    }
+  };
+
   const handleBack = () => {
     if (step > 1) {
       setStep(step - 1);
@@ -121,7 +127,7 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
           <h1 className="text-lg font-semibold text-foreground">Nova Reclamação</h1>
           <div className="w-10" />
         </div>
-        <StepIndicator currentStep={step} totalSteps={6} labels={stepLabels} />
+        <StepIndicator currentStep={step} totalSteps={6} labels={stepLabels} onStepClick={goToStep} />
       </header>
 
       {/* Content */}
@@ -264,38 +270,110 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
               <div className="text-center mb-6">
                 <h2 className="text-xl font-bold text-foreground mb-2">Confirmar Envio</h2>
                 <p className="text-muted-foreground text-sm">
-                  Revise as informações antes de enviar.
+                  Revise as informações. Toque em "Editar" para alterar.
                 </p>
               </div>
               
               <div className="card-elevated space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Rua:</span>
-                  <span className="font-medium text-foreground">{formData.rua}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Bairro:</span>
-                  <span className="font-medium text-foreground">{formData.bairro}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Problema:</span>
-                  <span className="font-medium text-foreground">
-                    {formData.tipoProblema === "outro" 
-                      ? formData.outroProblema || "Outro problema"
-                      : problemLabels[formData.tipoProblema]}
-                  </span>
-                </div>
-                {formData.fotos.length > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Fotos:</span>
-                    <span className="font-medium text-foreground">{formData.fotos.length} arquivo(s)</span>
+                {/* Dados do cidadão */}
+                <div className="flex justify-between items-center">
+                  <div>
+                    <span className="text-muted-foreground text-sm">Cidadão:</span>
+                    <p className="font-medium text-foreground">{formData.nome}</p>
                   </div>
+                  <button 
+                    type="button" 
+                    onClick={() => goToStep(1)}
+                    className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                    aria-label="Editar dados"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="border-t border-border" />
+
+                {/* Local */}
+                <div className="flex justify-between items-center">
+                  <div>
+                    <span className="text-muted-foreground text-sm">Local:</span>
+                    <p className="font-medium text-foreground">{formData.rua}</p>
+                    <p className="text-sm text-muted-foreground">{formData.bairro}</p>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => goToStep(2)}
+                    className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                    aria-label="Editar local"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="border-t border-border" />
+
+                {/* Problema */}
+                <div className="flex justify-between items-center">
+                  <div>
+                    <span className="text-muted-foreground text-sm">Problema:</span>
+                    <p className="font-medium text-foreground">
+                      {formData.tipoProblema === "outro" 
+                        ? formData.outroProblema || "Outro problema"
+                        : problemLabels[formData.tipoProblema]}
+                    </p>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => goToStep(3)}
+                    className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                    aria-label="Editar problema"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {formData.descricao && (
+                  <>
+                    <div className="border-t border-border" />
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 mr-2">
+                        <span className="text-muted-foreground text-sm">Descrição:</span>
+                        <p className="text-sm text-foreground">{formData.descricao}</p>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => goToStep(4)}
+                        className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                        aria-label="Editar descrição"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </>
                 )}
-                {formData.videos.length > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Vídeos:</span>
-                    <span className="font-medium text-foreground">{formData.videos.length} arquivo(s)</span>
-                  </div>
+
+                {(formData.fotos.length > 0 || formData.videos.length > 0) && (
+                  <>
+                    <div className="border-t border-border" />
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="text-muted-foreground text-sm">Mídia:</span>
+                        <p className="font-medium text-foreground">
+                          {formData.fotos.length > 0 && `${formData.fotos.length} foto(s)`}
+                          {formData.fotos.length > 0 && formData.videos.length > 0 && ", "}
+                          {formData.videos.length > 0 && `${formData.videos.length} vídeo(s)`}
+                        </p>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => goToStep(5)}
+                        className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                        aria-label="Editar mídia"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
