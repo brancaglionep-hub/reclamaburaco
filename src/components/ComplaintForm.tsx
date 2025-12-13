@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Send, CheckCircle2, Pencil } from "lucide-react";
+import { ArrowLeft, ArrowRight, Send, CheckCircle2, Pencil, Building2 } from "lucide-react";
 import StepIndicator from "./StepIndicator";
 import LocationPicker from "./LocationPicker";
 import ProblemTypeSelector from "./ProblemTypeSelector";
@@ -100,311 +100,400 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center animate-fade-in">
-        <div className="w-20 h-20 rounded-full bg-secondary/10 flex items-center justify-center mb-6">
-          <CheckCircle2 className="w-12 h-12 text-secondary" />
+        <div className="max-w-md mx-auto">
+          <div className="w-20 h-20 lg:w-24 lg:h-24 rounded-full bg-secondary/10 flex items-center justify-center mx-auto mb-6">
+            <CheckCircle2 className="w-12 h-12 lg:w-14 lg:h-14 text-secondary" />
+          </div>
+          <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-3">
+            Reclamação enviada com sucesso!
+          </h2>
+          <p className="text-muted-foreground mb-8 lg:text-lg">
+            A Prefeitura de Biguaçu irá analisar sua solicitação e tomar as providências necessárias.
+          </p>
+          <button onClick={onClose} className="btn-hero">
+            Voltar ao início
+          </button>
         </div>
-        <h2 className="text-2xl font-bold text-foreground mb-3">
-          Reclamação enviada com sucesso!
-        </h2>
-        <p className="text-muted-foreground mb-8 max-w-sm">
-          A Prefeitura de Biguaçu irá analisar sua solicitação e tomar as providências necessárias.
-        </p>
-        <button onClick={onClose} className="btn-hero">
-          Voltar ao início
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-10">
-        <div className="flex items-center justify-between px-4 py-3">
-          <button onClick={handleBack} className="p-2 -ml-2 text-foreground">
-            <ArrowLeft className="w-6 h-6" />
-          </button>
-          <h1 className="text-lg font-semibold text-foreground">Nova Reclamação</h1>
-          <div className="w-10" />
+    <div className="min-h-screen bg-background flex flex-col lg:flex-row">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex lg:flex-col lg:w-80 xl:w-96 bg-primary text-primary-foreground p-8 xl:p-10">
+        <div className="flex items-center gap-3 mb-10">
+          <Building2 className="w-8 h-8" />
+          <div>
+            <p className="font-bold text-lg">Prefeitura de Biguaçu</p>
+            <p className="text-sm opacity-80">Reclamações de Ruas</p>
+          </div>
         </div>
-        <StepIndicator currentStep={step} totalSteps={6} labels={stepLabels} onStepClick={goToStep} />
-      </header>
 
-      {/* Content */}
-      <main className="flex-1 overflow-auto p-6">
-        <div className="max-w-lg mx-auto animate-slide-up" key={step}>
-          {step === 1 && (
-            <div className="space-y-5">
-              <div className="text-center mb-6">
-                <h2 className="text-xl font-bold text-foreground mb-2">Seus Dados</h2>
-                <p className="text-muted-foreground text-sm">
-                  Seus dados serão usados apenas para contato sobre essa solicitação.
-                </p>
-              </div>
+        <div className="flex-1">
+          <h2 className="text-2xl font-bold mb-4">Nova Reclamação</h2>
+          <p className="opacity-80 mb-8">
+            Preencha as informações para registrar um problema na sua rua.
+          </p>
+
+          {/* Desktop Step List */}
+          <div className="space-y-4">
+            {stepLabels.map((label, i) => {
+              const stepNum = i + 1;
+              const isCompleted = stepNum < step;
+              const isActive = stepNum === step;
               
-              <div>
-                <label className="block text-sm font-medium mb-2">Nome completo *</label>
-                <input
-                  type="text"
-                  value={formData.nome}
-                  onChange={(e) => updateField("nome", e.target.value)}
-                  placeholder="Digite seu nome"
-                  className="input-large"
-                  required
-                />
-              </div>
+              return (
+                <button
+                  key={i}
+                  onClick={() => isCompleted && goToStep(stepNum)}
+                  disabled={!isCompleted}
+                  className={`w-full flex items-center gap-4 p-3 rounded-xl transition-all ${
+                    isActive 
+                      ? "bg-primary-foreground/20" 
+                      : isCompleted 
+                        ? "hover:bg-primary-foreground/10 cursor-pointer" 
+                        : "opacity-50"
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold ${
+                    isCompleted 
+                      ? "bg-secondary text-secondary-foreground" 
+                      : isActive 
+                        ? "bg-primary-foreground text-primary" 
+                        : "bg-primary-foreground/20"
+                  }`}>
+                    {isCompleted ? "✓" : stepNum}
+                  </div>
+                  <span className={`font-medium ${isActive ? "text-primary-foreground" : ""}`}>
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">E-mail *</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => updateField("email", e.target.value)}
-                  placeholder="seu@email.com"
-                  className="input-large"
-                  required
-                />
-              </div>
+        <div className="mt-auto pt-8 border-t border-primary-foreground/20">
+          <p className="text-sm opacity-70">
+            Seus dados estão protegidos conforme a LGPD.
+          </p>
+        </div>
+      </aside>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Telefone / WhatsApp (opcional)</label>
-                <input
-                  type="tel"
-                  value={formData.telefone}
-                  onChange={(e) => updateField("telefone", e.target.value)}
-                  placeholder="(48) 99999-9999"
-                  className="input-large"
-                />
-              </div>
-            </div>
-          )}
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Mobile Header */}
+        <header className="bg-card border-b border-border sticky top-0 z-10 lg:hidden">
+          <div className="flex items-center justify-between px-4 py-3">
+            <button onClick={handleBack} className="p-2 -ml-2 text-foreground">
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <h1 className="text-lg font-semibold text-foreground">Nova Reclamação</h1>
+            <div className="w-10" />
+          </div>
+          <StepIndicator currentStep={step} totalSteps={6} labels={stepLabels} onStepClick={goToStep} />
+        </header>
 
-          {step === 2 && (
-            <div className="space-y-5">
-              <div className="text-center mb-6">
-                <h2 className="text-xl font-bold text-foreground mb-2">Local da Rua</h2>
-                <p className="text-muted-foreground text-sm">
-                  Informe onde está o problema.
-                </p>
-              </div>
-              
-              <LocationPicker
-                bairro={formData.bairro}
-                rua={formData.rua}
-                numero={formData.numero}
-                referencia={formData.referencia}
-                onBairroChange={(v) => updateField("bairro", v)}
-                onRuaChange={(v) => updateField("rua", v)}
-                onNumeroChange={(v) => updateField("numero", v)}
-                onReferenciaChange={(v) => updateField("referencia", v)}
-                onLocationCapture={(coords) => updateField("localizacao", coords)}
-              />
-            </div>
-          )}
+        {/* Desktop Header */}
+        <header className="hidden lg:flex items-center justify-between px-10 py-6 border-b border-border">
+          <button 
+            onClick={handleBack} 
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Voltar</span>
+          </button>
+          <p className="text-sm text-muted-foreground">
+            Etapa {step} de 6
+          </p>
+        </header>
 
-          {step === 3 && (
-            <div className="space-y-5">
-              <div className="text-center mb-6">
-                <h2 className="text-xl font-bold text-foreground mb-2">Tipo de Problema</h2>
-                <p className="text-muted-foreground text-sm">
-                  Selecione o que melhor descreve o problema.
-                </p>
-              </div>
-              
-              <ProblemTypeSelector
-                selected={formData.tipoProblema}
-                onSelect={(id) => updateField("tipoProblema", id)}
-              />
-
-              {formData.tipoProblema === "outro" && (
-                <div className="animate-fade-in">
-                  <label className="block text-sm font-medium mb-2">Descreva o problema</label>
+        {/* Content */}
+        <main className="flex-1 overflow-auto p-6 lg:p-10 xl:p-16">
+          <div className="max-w-lg mx-auto animate-slide-up" key={step}>
+            {step === 1 && (
+              <div className="space-y-5">
+                <div className="text-center lg:text-left mb-6">
+                  <h2 className="text-xl lg:text-2xl font-bold text-foreground mb-2">Seus Dados</h2>
+                  <p className="text-muted-foreground text-sm lg:text-base">
+                    Seus dados serão usados apenas para contato sobre essa solicitação.
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Nome completo *</label>
                   <input
                     type="text"
-                    value={formData.outroProblema}
-                    onChange={(e) => updateField("outroProblema", e.target.value)}
-                    placeholder="Qual é o problema?"
+                    value={formData.nome}
+                    onChange={(e) => updateField("nome", e.target.value)}
+                    placeholder="Digite seu nome"
+                    className="input-large"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">E-mail *</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => updateField("email", e.target.value)}
+                    placeholder="seu@email.com"
+                    className="input-large"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Telefone / WhatsApp (opcional)</label>
+                  <input
+                    type="tel"
+                    value={formData.telefone}
+                    onChange={(e) => updateField("telefone", e.target.value)}
+                    placeholder="(48) 99999-9999"
                     className="input-large"
                   />
                 </div>
-              )}
-            </div>
-          )}
-
-          {step === 4 && (
-            <div className="space-y-5">
-              <div className="text-center mb-6">
-                <h2 className="text-xl font-bold text-foreground mb-2">Descrição</h2>
-                <p className="text-muted-foreground text-sm">
-                  Se quiser, descreva melhor o problema da rua.
-                </p>
               </div>
-              
-              <textarea
-                value={formData.descricao}
-                onChange={(e) => updateField("descricao", e.target.value)}
-                placeholder="Conte mais detalhes sobre o problema..."
-                className="input-large min-h-[180px] resize-none"
-                rows={6}
-              />
-            </div>
-          )}
+            )}
 
-          {step === 5 && (
-            <div className="space-y-5">
-              <div className="text-center mb-6">
-                <h2 className="text-xl font-bold text-foreground mb-2">Fotos e Vídeos</h2>
+            {step === 2 && (
+              <div className="space-y-5">
+                <div className="text-center lg:text-left mb-6">
+                  <h2 className="text-xl lg:text-2xl font-bold text-foreground mb-2">Local da Rua</h2>
+                  <p className="text-muted-foreground text-sm lg:text-base">
+                    Informe onde está o problema.
+                  </p>
+                </div>
+                
+                <LocationPicker
+                  bairro={formData.bairro}
+                  rua={formData.rua}
+                  numero={formData.numero}
+                  referencia={formData.referencia}
+                  onBairroChange={(v) => updateField("bairro", v)}
+                  onRuaChange={(v) => updateField("rua", v)}
+                  onNumeroChange={(v) => updateField("numero", v)}
+                  onReferenciaChange={(v) => updateField("referencia", v)}
+                  onLocationCapture={(coords) => updateField("localizacao", coords)}
+                />
               </div>
-              
-              <MediaUpload
-                photos={formData.fotos}
-                videos={formData.videos}
-                onPhotosChange={(files) => updateField("fotos", files)}
-                onVideosChange={(files) => updateField("videos", files)}
-              />
-            </div>
-          )}
+            )}
 
-          {step === 6 && (
-            <div className="space-y-5">
-              <div className="text-center mb-6">
-                <h2 className="text-xl font-bold text-foreground mb-2">Confirmar Envio</h2>
-                <p className="text-muted-foreground text-sm">
-                  Revise as informações. Toque em "Editar" para alterar.
-                </p>
-              </div>
-              
-              <div className="card-elevated space-y-4">
-                {/* Dados do cidadão */}
-                <div className="flex justify-between items-center">
-                  <div>
-                    <span className="text-muted-foreground text-sm">Cidadão:</span>
-                    <p className="font-medium text-foreground">{formData.nome}</p>
-                  </div>
-                  <button 
-                    type="button" 
-                    onClick={() => goToStep(1)}
-                    className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                    aria-label="Editar dados"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
+            {step === 3 && (
+              <div className="space-y-5">
+                <div className="text-center lg:text-left mb-6">
+                  <h2 className="text-xl lg:text-2xl font-bold text-foreground mb-2">Tipo de Problema</h2>
+                  <p className="text-muted-foreground text-sm lg:text-base">
+                    Selecione o que melhor descreve o problema.
+                  </p>
                 </div>
+                
+                <ProblemTypeSelector
+                  selected={formData.tipoProblema}
+                  onSelect={(id) => updateField("tipoProblema", id)}
+                />
 
-                <div className="border-t border-border" />
-
-                {/* Local */}
-                <div className="flex justify-between items-center">
-                  <div>
-                    <span className="text-muted-foreground text-sm">Local:</span>
-                    <p className="font-medium text-foreground">{formData.rua}</p>
-                    <p className="text-sm text-muted-foreground">{formData.bairro}</p>
+                {formData.tipoProblema === "outro" && (
+                  <div className="animate-fade-in">
+                    <label className="block text-sm font-medium mb-2">Descreva o problema</label>
+                    <input
+                      type="text"
+                      value={formData.outroProblema}
+                      onChange={(e) => updateField("outroProblema", e.target.value)}
+                      placeholder="Qual é o problema?"
+                      className="input-large"
+                    />
                   </div>
-                  <button 
-                    type="button" 
-                    onClick={() => goToStep(2)}
-                    className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                    aria-label="Editar local"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="border-t border-border" />
-
-                {/* Problema */}
-                <div className="flex justify-between items-center">
-                  <div>
-                    <span className="text-muted-foreground text-sm">Problema:</span>
-                    <p className="font-medium text-foreground">
-                      {formData.tipoProblema === "outro" 
-                        ? formData.outroProblema || "Outro problema"
-                        : problemLabels[formData.tipoProblema]}
-                    </p>
-                  </div>
-                  <button 
-                    type="button" 
-                    onClick={() => goToStep(3)}
-                    className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                    aria-label="Editar problema"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {formData.descricao && (
-                  <>
-                    <div className="border-t border-border" />
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1 mr-2">
-                        <span className="text-muted-foreground text-sm">Descrição:</span>
-                        <p className="text-sm text-foreground">{formData.descricao}</p>
-                      </div>
-                      <button 
-                        type="button" 
-                        onClick={() => goToStep(4)}
-                        className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                        aria-label="Editar descrição"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {(formData.fotos.length > 0 || formData.videos.length > 0) && (
-                  <>
-                    <div className="border-t border-border" />
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <span className="text-muted-foreground text-sm">Mídia:</span>
-                        <p className="font-medium text-foreground">
-                          {formData.fotos.length > 0 && `${formData.fotos.length} foto(s)`}
-                          {formData.fotos.length > 0 && formData.videos.length > 0 && ", "}
-                          {formData.videos.length > 0 && `${formData.videos.length} vídeo(s)`}
-                        </p>
-                      </div>
-                      <button 
-                        type="button" 
-                        onClick={() => goToStep(5)}
-                        className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                        aria-label="Editar mídia"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </>
                 )}
               </div>
-            </div>
-          )}
-        </div>
-      </main>
+            )}
 
-      {/* Footer */}
-      <footer className="bg-card border-t border-border p-4 sticky bottom-0">
-        <div className="max-w-lg mx-auto">
-          {step < 6 ? (
+            {step === 4 && (
+              <div className="space-y-5">
+                <div className="text-center lg:text-left mb-6">
+                  <h2 className="text-xl lg:text-2xl font-bold text-foreground mb-2">Descrição</h2>
+                  <p className="text-muted-foreground text-sm lg:text-base">
+                    Se quiser, descreva melhor o problema da rua.
+                  </p>
+                </div>
+                
+                <textarea
+                  value={formData.descricao}
+                  onChange={(e) => updateField("descricao", e.target.value)}
+                  placeholder="Conte mais detalhes sobre o problema..."
+                  className="input-large min-h-[180px] lg:min-h-[220px] resize-none"
+                  rows={6}
+                />
+              </div>
+            )}
+
+            {step === 5 && (
+              <div className="space-y-5">
+                <div className="text-center lg:text-left mb-6">
+                  <h2 className="text-xl lg:text-2xl font-bold text-foreground mb-2">Fotos e Vídeos</h2>
+                </div>
+                
+                <MediaUpload
+                  photos={formData.fotos}
+                  videos={formData.videos}
+                  onPhotosChange={(files) => updateField("fotos", files)}
+                  onVideosChange={(files) => updateField("videos", files)}
+                />
+              </div>
+            )}
+
+            {step === 6 && (
+              <div className="space-y-5">
+                <div className="text-center lg:text-left mb-6">
+                  <h2 className="text-xl lg:text-2xl font-bold text-foreground mb-2">Confirmar Envio</h2>
+                  <p className="text-muted-foreground text-sm lg:text-base">
+                    Revise as informações. Toque em "Editar" para alterar.
+                  </p>
+                </div>
+                
+                <div className="card-elevated space-y-4">
+                  {/* Dados do cidadão */}
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="text-muted-foreground text-sm">Cidadão:</span>
+                      <p className="font-medium text-foreground">{formData.nome}</p>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => goToStep(1)}
+                      className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                      aria-label="Editar dados"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="border-t border-border" />
+
+                  {/* Local */}
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="text-muted-foreground text-sm">Local:</span>
+                      <p className="font-medium text-foreground">{formData.rua}</p>
+                      <p className="text-sm text-muted-foreground">{formData.bairro}</p>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => goToStep(2)}
+                      className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                      aria-label="Editar local"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="border-t border-border" />
+
+                  {/* Problema */}
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="text-muted-foreground text-sm">Problema:</span>
+                      <p className="font-medium text-foreground">
+                        {formData.tipoProblema === "outro" 
+                          ? formData.outroProblema || "Outro problema"
+                          : problemLabels[formData.tipoProblema]}
+                      </p>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => goToStep(3)}
+                      className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                      aria-label="Editar problema"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {formData.descricao && (
+                    <>
+                      <div className="border-t border-border" />
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 mr-2">
+                          <span className="text-muted-foreground text-sm">Descrição:</span>
+                          <p className="text-sm text-foreground">{formData.descricao}</p>
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => goToStep(4)}
+                          className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                          aria-label="Editar descrição"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {(formData.fotos.length > 0 || formData.videos.length > 0) && (
+                    <>
+                      <div className="border-t border-border" />
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <span className="text-muted-foreground text-sm">Mídia:</span>
+                          <p className="font-medium text-foreground">
+                            {formData.fotos.length > 0 && `${formData.fotos.length} foto(s)`}
+                            {formData.fotos.length > 0 && formData.videos.length > 0 && ", "}
+                            {formData.videos.length > 0 && `${formData.videos.length} vídeo(s)`}
+                          </p>
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => goToStep(5)}
+                          className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                          aria-label="Editar mídia"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </main>
+
+        {/* Footer */}
+        <footer className="bg-card border-t border-border p-4 lg:p-6 sticky bottom-0">
+          <div className="max-w-lg mx-auto lg:flex lg:gap-4">
+            {/* Desktop back button */}
             <button
-              onClick={handleNext}
-              disabled={!canAdvance()}
-              className="btn-hero w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleBack}
+              className="hidden lg:flex items-center justify-center gap-2 px-6 py-4 rounded-xl border-2 border-border text-foreground hover:bg-muted transition-colors"
             >
-              Continuar
-              <ArrowRight className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5" />
+              Voltar
             </button>
-          ) : (
-            <button
-              onClick={handleSubmit}
-              className="btn-hero w-full flex items-center justify-center gap-2"
-              style={{ background: "var(--gradient-success)" }}
-            >
-              <Send className="w-5 h-5" />
-              Enviar Reclamação
-            </button>
-          )}
-        </div>
-      </footer>
+            
+            {step < 6 ? (
+              <button
+                onClick={handleNext}
+                disabled={!canAdvance()}
+                className="btn-hero w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Continuar
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                className="btn-hero w-full flex items-center justify-center gap-2"
+                style={{ background: "var(--gradient-success)" }}
+              >
+                <Send className="w-5 h-5" />
+                Enviar Reclamação
+              </button>
+            )}
+          </div>
+        </footer>
+      </div>
     </div>
   );
 };
