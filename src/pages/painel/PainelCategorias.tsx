@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, GripVertical } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,23 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 
 interface OutletContext {
   prefeituraId: string;
@@ -44,101 +27,6 @@ interface Categoria {
   ordem: number;
 }
 
-interface SortableRowProps {
-  categoria: Categoria;
-  onToggleAtivo: (categoria: Categoria) => void;
-  onEdit: (categoria: Categoria) => void;
-  onDelete: (id: string) => void;
-}
-
-const SortableRow = ({ categoria, onToggleAtivo, onEdit, onDelete }: SortableRowProps) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: categoria.id, disabled: categoria.global });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`flex items-center gap-4 p-4 bg-card border border-border rounded-lg ${
-        isDragging ? "shadow-lg" : ""
-      } ${categoria.global ? "opacity-60" : ""}`}
-    >
-      {!categoria.global && (
-        <button
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
-        >
-          <GripVertical className="w-5 h-5" />
-        </button>
-      )}
-      {categoria.global && <div className="w-5" />}
-      
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-foreground truncate">{categoria.nome}</p>
-        {categoria.descricao && (
-          <p className="text-sm text-muted-foreground truncate">{categoria.descricao}</p>
-        )}
-      </div>
-
-      <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-        categoria.global ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-      }`}>
-        {categoria.global ? "Global" : "Local"}
-      </span>
-
-      <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-        categoria.ativo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-      }`}>
-        {categoria.ativo ? "Ativo" : "Inativo"}
-      </span>
-
-      {!categoria.global && (
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onToggleAtivo(categoria)}
-          >
-            {categoria.ativo ? (
-              <ToggleRight className="w-5 h-5 text-green-600" />
-            ) : (
-              <ToggleLeft className="w-5 h-5 text-gray-400" />
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onEdit(categoria)}
-          >
-            <Edit2 className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onDelete(categoria.id)}
-            className="text-destructive hover:text-destructive"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-};
-
 const PainelCategorias = () => {
   const { prefeituraId } = useOutletContext<OutletContext>();
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -146,17 +34,8 @@ const PainelCategorias = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCategoria, setEditingCategoria] = useState<Categoria | null>(null);
   const [formData, setFormData] = useState({ nome: "", descricao: "" });
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const fetchCategorias = async () => {
     const { data, error } = await supabase
@@ -177,31 +56,61 @@ const PainelCategorias = () => {
     }
   }, [prefeituraId]);
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedId(id);
+    e.dataTransfer.effectAllowed = "move";
+  };
 
-    if (over && active.id !== over.id) {
-      const oldIndex = categorias.findIndex((c) => c.id === active.id);
-      const newIndex = categorias.findIndex((c) => c.id === over.id);
-
-      const newCategorias = arrayMove(categorias, oldIndex, newIndex);
-      setCategorias(newCategorias);
-
-      // Update order in database
-      const updates = newCategorias.map((cat, index) => ({
-        id: cat.id,
-        ordem: index
-      }));
-
-      for (const update of updates) {
-        await supabase
-          .from("categorias")
-          .update({ ordem: update.ordem })
-          .eq("id", update.id);
-      }
-
-      toast({ title: "Ordem atualizada!" });
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    if (draggedId !== id) {
+      setDragOverId(id);
     }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    setDragOverId(null);
+
+    if (!draggedId || draggedId === targetId) {
+      setDraggedId(null);
+      return;
+    }
+
+    const draggedIndex = categorias.findIndex((c) => c.id === draggedId);
+    const targetIndex = categorias.findIndex((c) => c.id === targetId);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedId(null);
+      return;
+    }
+
+    // Reorder array
+    const newCategorias = [...categorias];
+    const [removed] = newCategorias.splice(draggedIndex, 1);
+    newCategorias.splice(targetIndex, 0, removed);
+
+    setCategorias(newCategorias);
+    setDraggedId(null);
+
+    // Update order in database
+    for (let i = 0; i < newCategorias.length; i++) {
+      await supabase
+        .from("categorias")
+        .update({ ordem: i })
+        .eq("id", newCategorias[i].id);
+    }
+
+    toast({ title: "Ordem atualizada!" });
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+    setDragOverId(null);
   };
 
   const handleOpenDialog = (categoria?: Categoria) => {
@@ -318,26 +227,80 @@ const PainelCategorias = () => {
             Nenhuma categoria cadastrada
           </div>
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={categorias.map(c => c.id)}
-              strategy={verticalListSortingStrategy}
+          categorias.map((categoria) => (
+            <div
+              key={categoria.id}
+              draggable={!categoria.global}
+              onDragStart={(e) => handleDragStart(e, categoria.id)}
+              onDragOver={(e) => handleDragOver(e, categoria.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, categoria.id)}
+              onDragEnd={handleDragEnd}
+              className={`flex items-center gap-4 p-4 bg-card border rounded-lg transition-all ${
+                draggedId === categoria.id ? "opacity-50 border-primary" : "border-border"
+              } ${dragOverId === categoria.id ? "border-primary border-2 bg-primary/5" : ""} ${
+                categoria.global ? "opacity-60" : "cursor-move"
+              }`}
             >
-              {categorias.map((categoria) => (
-                <SortableRow
-                  key={categoria.id}
-                  categoria={categoria}
-                  onToggleAtivo={handleToggleAtivo}
-                  onEdit={handleOpenDialog}
-                  onDelete={handleDelete}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
+              {!categoria.global ? (
+                <div className="text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing">
+                  <GripVertical className="w-5 h-5" />
+                </div>
+              ) : (
+                <div className="w-5" />
+              )}
+              
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-foreground truncate">{categoria.nome}</p>
+                {categoria.descricao && (
+                  <p className="text-sm text-muted-foreground truncate">{categoria.descricao}</p>
+                )}
+              </div>
+
+              <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                categoria.global ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+              }`}>
+                {categoria.global ? "Global" : "Local"}
+              </span>
+
+              <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                categoria.ativo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+              }`}>
+                {categoria.ativo ? "Ativo" : "Inativo"}
+              </span>
+
+              {!categoria.global && (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleToggleAtivo(categoria)}
+                  >
+                    {categoria.ativo ? (
+                      <ToggleRight className="w-5 h-5 text-green-600" />
+                    ) : (
+                      <ToggleLeft className="w-5 h-5 text-gray-400" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleOpenDialog(categoria)}
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(categoria.id)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))
         )}
       </div>
 
