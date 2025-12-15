@@ -230,25 +230,19 @@ const PainelCategorias = () => {
           categorias.map((categoria) => (
             <div
               key={categoria.id}
-              draggable={!categoria.global}
+              draggable
               onDragStart={(e) => handleDragStart(e, categoria.id)}
               onDragOver={(e) => handleDragOver(e, categoria.id)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, categoria.id)}
               onDragEnd={handleDragEnd}
-              className={`flex items-center gap-4 p-4 bg-card border rounded-lg transition-all ${
+              className={`flex items-center gap-4 p-4 bg-card border rounded-lg transition-all cursor-move ${
                 draggedId === categoria.id ? "opacity-50 border-primary" : "border-border"
-              } ${dragOverId === categoria.id ? "border-primary border-2 bg-primary/5" : ""} ${
-                categoria.global ? "opacity-60" : "cursor-move"
-              }`}
+              } ${dragOverId === categoria.id ? "border-primary border-2 bg-primary/5" : ""}`}
             >
-              {!categoria.global ? (
-                <div className="text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing">
-                  <GripVertical className="w-5 h-5" />
-                </div>
-              ) : (
-                <div className="w-5" />
-              )}
+              <div className="text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing">
+                <GripVertical className="w-5 h-5" />
+              </div>
               
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-foreground truncate">{categoria.nome}</p>
@@ -269,36 +263,39 @@ const PainelCategorias = () => {
                 {categoria.ativo ? "Ativo" : "Inativo"}
               </span>
 
-              {!categoria.global && (
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleToggleAtivo(categoria)}
-                  >
-                    {categoria.ativo ? (
-                      <ToggleRight className="w-5 h-5 text-green-600" />
-                    ) : (
-                      <ToggleLeft className="w-5 h-5 text-gray-400" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleOpenDialog(categoria)}
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(categoria.id)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleToggleAtivo(categoria)}
+                  title={categoria.global ? "Ativar/desativar para sua prefeitura" : "Ativar/desativar"}
+                >
+                  {categoria.ativo ? (
+                    <ToggleRight className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <ToggleLeft className="w-5 h-5 text-gray-400" />
+                  )}
+                </Button>
+                {!categoria.global && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleOpenDialog(categoria)}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(categoria.id)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           ))
         )}
