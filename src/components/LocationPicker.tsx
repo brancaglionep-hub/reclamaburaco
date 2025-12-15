@@ -246,7 +246,7 @@ const LocationPicker = ({
         <div>
           <label className="block text-sm font-medium mb-2">Bairro *</label>
           <select
-            value={bairros.includes(bairro) ? bairro : "Outro"}
+            value={bairro === "" ? "" : (bairros.includes(bairro) ? bairro : "Outro")}
             onChange={(e) => onBairroChange(e.target.value)}
             className="input-large"
             required
