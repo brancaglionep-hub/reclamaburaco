@@ -107,13 +107,25 @@ const Home = () => {
       {/* Cities Section */}
       <section className="py-16 lg:py-24 bg-muted/30">
         <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-12">
+          <div className="text-center mb-10">
             <h3 className="text-2xl lg:text-3xl font-bold text-foreground mb-3">
               Cidades Participantes
             </h3>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground mb-8">
               Selecione sua cidade para começar
             </p>
+            
+            {/* Search Bar */}
+            <div className="relative max-w-md mx-auto">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Buscar sua cidade..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-12 h-12 text-base rounded-xl border-border bg-card shadow-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
           </div>
 
           {/* Cities Grid */}
