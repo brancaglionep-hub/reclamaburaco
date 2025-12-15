@@ -142,7 +142,9 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
       case 1:
         return formData.nome.trim() !== "" && formData.email.trim() !== "";
       case 2:
-        return formData.bairro !== "" && formData.rua.trim() !== "";
+        // Se bairro for "Outro", precisa ter um valor personalizado preenchido
+        const bairroValido = formData.bairro !== "" && formData.bairro !== "Outro";
+        return bairroValido && formData.rua.trim() !== "";
       case 3:
         return formData.tipoProblema !== "";
       default:
