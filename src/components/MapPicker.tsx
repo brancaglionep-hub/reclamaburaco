@@ -28,11 +28,16 @@ const MapPicker = ({ position, onPositionChange }: MapPickerProps) => {
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
 
-    // Initialize map
+    // Initialize map with mobile-friendly settings (no zoom gestures)
     const map = L.map(mapContainer.current, {
       center: [currentPosition.lat, currentPosition.lng],
       zoom: 16,
-      scrollWheelZoom: true,
+      scrollWheelZoom: false,
+      touchZoom: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+      zoomControl: true,
+      dragging: true,
     });
 
     // Add tile layer
@@ -89,7 +94,7 @@ const MapPicker = ({ position, onPositionChange }: MapPickerProps) => {
     <div 
       ref={mapContainer}
       className="w-full h-[250px] rounded-xl overflow-hidden border border-border shadow-sm"
-      style={{ zIndex: 1 }}
+      style={{ zIndex: 1, touchAction: "pan-x pan-y" }}
     />
   );
 };
