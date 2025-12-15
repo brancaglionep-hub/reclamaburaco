@@ -26,6 +26,7 @@ interface FormErrors {
   nome?: string;
   email?: string;
   telefone?: string;
+  bairro?: string;
 }
 
 const stepLabels = ["Dados", "Local", "Problema", "Detalhes", "Mídia", "Enviar"];
@@ -152,9 +153,38 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
     }
   };
 
+  const validateStep2 = (): boolean => {
+    const newErrors: FormErrors = {};
+    
+    if (formData.bairro === "" || formData.bairro === "Outro") {
+      newErrors.bairro = "Digite o nome do bairro";
+    }
+    
+    if (formData.rua.trim() === "") {
+      // Rua error could be added here too if needed
+    }
+    
+    setErrors((prev) => ({ ...prev, ...newErrors }));
+    
+    if (Object.keys(newErrors).length > 0) {
+      toast({
+        title: "Campo obrigatório",
+        description: "Preencha o nome do bairro para continuar.",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleNext = () => {
     if (step === 1) {
       if (!validateStep1()) return;
+    }
+    
+    if (step === 2) {
+      if (!validateStep2()) return;
     }
     
     if (step < 6 && canAdvance()) {
@@ -366,7 +396,11 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
                   numero={formData.numero}
                   referencia={formData.referencia}
                   localizacao={formData.localizacao}
-                  onBairroChange={(v) => updateField("bairro", v)}
+                  bairroError={errors.bairro}
+                  onBairroChange={(v) => {
+                    updateField("bairro", v);
+                    if (errors.bairro) setErrors((prev) => ({ ...prev, bairro: undefined }));
+                  }}
                   onRuaChange={(v) => updateField("rua", v)}
                   onNumeroChange={(v) => updateField("numero", v)}
                   onReferenciaChange={(v) => updateField("referencia", v)}
