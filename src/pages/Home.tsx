@@ -79,21 +79,9 @@ const Home = () => {
             Reporte problemas nas <span className="text-primary">ruas</span> da sua cidade
           </h2>
           
-          <p className="text-lg lg:text-xl text-white/80 mb-10 max-w-2xl mx-auto">
+          <p className="text-lg lg:text-xl text-white/80 max-w-2xl mx-auto">
             Selecione sua cidade para registrar ou acompanhar reclamações sobre buracos, pavimentação e outros problemas nas vias públicas
           </p>
-
-          {/* Search */}
-          <div className="relative max-w-xl mx-auto">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Buscar sua cidade..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-14 h-16 text-lg rounded-2xl border-0 bg-white shadow-2xl focus:ring-4 focus:ring-primary/30"
-            />
-          </div>
         </div>
 
         {/* Scroll indicator */}
