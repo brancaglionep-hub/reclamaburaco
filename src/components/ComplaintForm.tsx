@@ -87,9 +87,11 @@ const formatPhone = (value: string): string => {
 
 interface ComplaintFormProps {
   onClose: () => void;
+  prefeituraId?: string;
+  bairroId?: string | null;
 }
 
-const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
+const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: ComplaintFormProps) => {
   const [step, setStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -238,11 +240,11 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
       const { data, error } = await supabase
         .from("reclamacoes")
         .insert({
-          prefeitura_id: PREFEITURA_ID,
+          prefeitura_id: prefeituraId,
           nome_cidadao: formData.nome,
           email_cidadao: formData.email,
           telefone_cidadao: formData.telefone || null,
-          bairro_id: bairroData?.id || null,
+          bairro_id: bairroId || bairroData?.id || null,
           categoria_id: categoriaId,
           rua: formData.rua,
           numero: formData.numero || null,
