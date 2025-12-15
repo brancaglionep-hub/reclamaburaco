@@ -84,7 +84,7 @@ const CityPage = () => {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
-      <header className="bg-[#3b82a0] text-white">
+      <header className="bg-[#2273c3] text-white">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {prefeitura.logo_url ? (
@@ -92,9 +92,9 @@ const CityPage = () => {
             ) : (
               <Building2 className="w-8 h-8" />
             )}
-            <div>
+            <div className="flex items-center gap-2">
               <p className="font-semibold">{prefeitura.nome}</p>
-              <p className="text-xs text-white/70">{prefeitura.estado || "Santa Catarina"}</p>
+              <span className="text-sm text-white/70">| {prefeitura.estado || "Santa Catarina"}</span>
             </div>
           </div>
           {prefeitura.telefone_contato && (
@@ -230,14 +230,14 @@ const CityPage = () => {
       </section>
 
       {/* Footer */}
-      <footer className="mt-auto bg-[#2d3748] text-white py-8">
+      <footer className="mt-auto bg-[#eef2f6] py-8">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
-              <p className="font-semibold">{prefeitura.nome}</p>
-              <p className="text-sm text-white/70">Trabalhando por uma cidade melhor</p>
+              <p className="font-semibold text-gray-700">{prefeitura.nome}</p>
+              <p className="text-sm text-gray-500">Trabalhando por uma cidade melhor</p>
             </div>
-            <div className="text-center md:text-right text-sm text-white/70">
+            <div className="text-center md:text-right text-sm text-gray-500">
               <p>Seus dados são protegidos conforme a LGPD</p>
               <p>© {new Date().getFullYear()} {prefeitura.nome} - Todos os direitos reservados</p>
             </div>
