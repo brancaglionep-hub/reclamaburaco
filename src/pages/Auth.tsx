@@ -1,10 +1,25 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
+import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+
+const authSchema = z.object({
+  email: z.string().trim().email("E-mail inválido").max(255, "E-mail muito longo"),
+  password: z
+    .string()
+    .min(6, "A senha deve ter pelo menos 6 caracteres")
+    .max(72, "A senha deve ter no máximo 72 caracteres"),
+  nome: z.string().trim().min(2, "Digite seu nome").max(100, "Nome muito longo").optional(),
+});
+
+type UserRoleRow = {
+  role: "super_admin" | "admin_prefeitura" | "user";
+  prefeitura_id: string | null;
+};
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -14,13 +29,54 @@ const Auth = () => {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    nome: ""
+    nome: "",
   });
 
+  const checkUserRole = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("user_roles")
+      .select("role, prefeitura_id")
+      .eq("user_id", userId);
+
+    if (error) {
+      toast({
+        title: "Erro ao validar acesso",
+        description: "Tente novamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const roles = (data ?? []) as UserRoleRow[];
+
+    if (roles.some((r) => r.role === "super_admin")) {
+      navigate("/admin", { replace: true });
+      return;
+    }
+
+    const prefeituraRole = roles.find(
+      (r) => r.role === "admin_prefeitura" && Boolean(r.prefeitura_id)
+    );
+
+    if (prefeituraRole?.prefeitura_id) {
+      navigate(`/painel/${prefeituraRole.prefeitura_id}`, { replace: true });
+      return;
+    }
+
+    toast({
+      title: "Sem permissão",
+      description: "Sua conta ainda não tem acesso ao painel.",
+      variant: "destructive",
+    });
+  };
+
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // Nunca chame outras funções do backend diretamente aqui: use setTimeout
       if (session?.user) {
-        checkUserRole(session.user.id);
+        setTimeout(() => checkUserRole(session.user.id), 0);
       }
     });
 
@@ -31,62 +87,72 @@ const Auth = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
-
-  const checkUserRole = async (userId: string) => {
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role, prefeitura_id")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (data) {
-      if (data.role === "super_admin") {
-        navigate("/admin");
-      } else if (data.role === "admin_prefeitura" && data.prefeitura_id) {
-        navigate(`/painel/${data.prefeitura_id}`);
-      }
-    }
-  };
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const parsed = authSchema.safeParse({
+      email: formData.email,
+      password: formData.password,
+      nome: isLogin ? undefined : formData.nome,
+    });
+
+    if (!parsed.success) {
+      toast({
+        title: "Corrija os campos",
+        description: parsed.error.issues[0]?.message ?? "Dados inválidos",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password
+          email: parsed.data.email,
+          password: parsed.data.password,
         });
 
         if (error) throw error;
-        
+
         toast({ title: "Login realizado com sucesso!" });
+
+        // Redireciona imediatamente após login
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session?.user) {
+          await checkUserRole(session.user.id);
+        }
       } else {
         const { error } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
+          email: parsed.data.email,
+          password: parsed.data.password,
           options: {
             emailRedirectTo: `${window.location.origin}/auth`,
-            data: { nome: formData.nome }
-          }
+            data: { nome: parsed.data.nome },
+          },
         });
 
         if (error) throw error;
-        
+
         toast({
           title: "Cadastro realizado!",
-          description: "Aguarde a aprovação de um administrador."
+          description: "Aguarde a aprovação de um administrador.",
         });
       }
     } catch (error: any) {
       toast({
         title: "Erro",
-        description: error.message === "Invalid login credentials" 
-          ? "E-mail ou senha incorretos" 
-          : error.message,
-        variant: "destructive"
+        description:
+          error.message === "Invalid login credentials"
+            ? "E-mail ou senha incorretos"
+            : error.message,
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
