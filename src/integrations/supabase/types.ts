@@ -55,6 +55,7 @@ export type Database = {
           icone: string | null
           id: string
           nome: string
+          ordem: number | null
           prefeitura_id: string | null
         }
         Insert: {
@@ -65,6 +66,7 @@ export type Database = {
           icone?: string | null
           id?: string
           nome: string
+          ordem?: number | null
           prefeitura_id?: string | null
         }
         Update: {
@@ -75,6 +77,7 @@ export type Database = {
           icone?: string | null
           id?: string
           nome?: string
+          ordem?: number | null
           prefeitura_id?: string | null
         }
         Relationships: [

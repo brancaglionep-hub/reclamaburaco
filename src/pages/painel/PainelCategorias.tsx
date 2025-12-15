@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, GripVertical } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,13 +13,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface OutletContext {
   prefeituraId: string;
@@ -32,7 +41,103 @@ interface Categoria {
   icone: string | null;
   ativo: boolean;
   global: boolean;
+  ordem: number;
 }
+
+interface SortableRowProps {
+  categoria: Categoria;
+  onToggleAtivo: (categoria: Categoria) => void;
+  onEdit: (categoria: Categoria) => void;
+  onDelete: (id: string) => void;
+}
+
+const SortableRow = ({ categoria, onToggleAtivo, onEdit, onDelete }: SortableRowProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: categoria.id, disabled: categoria.global });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-4 p-4 bg-card border border-border rounded-lg ${
+        isDragging ? "shadow-lg" : ""
+      } ${categoria.global ? "opacity-60" : ""}`}
+    >
+      {!categoria.global && (
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
+        >
+          <GripVertical className="w-5 h-5" />
+        </button>
+      )}
+      {categoria.global && <div className="w-5" />}
+      
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-foreground truncate">{categoria.nome}</p>
+        {categoria.descricao && (
+          <p className="text-sm text-muted-foreground truncate">{categoria.descricao}</p>
+        )}
+      </div>
+
+      <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+        categoria.global ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+      }`}>
+        {categoria.global ? "Global" : "Local"}
+      </span>
+
+      <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+        categoria.ativo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+      }`}>
+        {categoria.ativo ? "Ativo" : "Inativo"}
+      </span>
+
+      {!categoria.global && (
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onToggleAtivo(categoria)}
+          >
+            {categoria.ativo ? (
+              <ToggleRight className="w-5 h-5 text-green-600" />
+            ) : (
+              <ToggleLeft className="w-5 h-5 text-gray-400" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onEdit(categoria)}
+          >
+            <Edit2 className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDelete(categoria.id)}
+            className="text-destructive hover:text-destructive"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const PainelCategorias = () => {
   const { prefeituraId } = useOutletContext<OutletContext>();
@@ -42,12 +147,23 @@ const PainelCategorias = () => {
   const [editingCategoria, setEditingCategoria] = useState<Categoria | null>(null);
   const [formData, setFormData] = useState({ nome: "", descricao: "" });
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   const fetchCategorias = async () => {
     const { data, error } = await supabase
       .from("categorias")
       .select("*")
       .or(`prefeitura_id.eq.${prefeituraId},global.eq.true`)
-      .order("nome");
+      .order("ordem", { ascending: true });
 
     if (!error && data) {
       setCategorias(data);
@@ -60,6 +176,33 @@ const PainelCategorias = () => {
       fetchCategorias();
     }
   }, [prefeituraId]);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = categorias.findIndex((c) => c.id === active.id);
+      const newIndex = categorias.findIndex((c) => c.id === over.id);
+
+      const newCategorias = arrayMove(categorias, oldIndex, newIndex);
+      setCategorias(newCategorias);
+
+      // Update order in database
+      const updates = newCategorias.map((cat, index) => ({
+        id: cat.id,
+        ordem: index
+      }));
+
+      for (const update of updates) {
+        await supabase
+          .from("categorias")
+          .update({ ordem: update.ordem })
+          .eq("id", update.id);
+      }
+
+      toast({ title: "Ordem atualizada!" });
+    }
+  };
 
   const handleOpenDialog = (categoria?: Categoria) => {
     if (categoria && !categoria.global) {
@@ -92,12 +235,15 @@ const PainelCategorias = () => {
         fetchCategorias();
       }
     } else {
+      const maxOrdem = categorias.length > 0 ? Math.max(...categorias.map(c => c.ordem || 0)) : 0;
+      
       const { error } = await supabase
         .from("categorias")
         .insert({
           nome: formData.nome.trim(),
           descricao: formData.descricao || null,
-          prefeitura_id: prefeituraId
+          prefeitura_id: prefeituraId,
+          ordem: maxOrdem + 1
         });
 
       if (error) {
@@ -158,7 +304,7 @@ const PainelCategorias = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Categorias</h1>
-          <p className="text-muted-foreground mt-1">Gerencie os tipos de reclamações</p>
+          <p className="text-muted-foreground mt-1">Arraste para reordenar as categorias</p>
         </div>
         <Button onClick={() => handleOpenDialog()}>
           <Plus className="w-4 h-4 mr-2" />
@@ -166,78 +312,33 @@ const PainelCategorias = () => {
         </Button>
       </div>
 
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {categorias.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                  Nenhuma categoria cadastrada
-                </TableCell>
-              </TableRow>
-            ) : (
-              categorias.map((categoria) => (
-                <TableRow key={categoria.id}>
-                  <TableCell className="font-medium">{categoria.nome}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      categoria.global ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-                    }`}>
-                      {categoria.global ? "Global" : "Local"}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      categoria.ativo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                    }`}>
-                      {categoria.ativo ? "Ativo" : "Inativo"}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {!categoria.global && (
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleToggleAtivo(categoria)}
-                        >
-                          {categoria.ativo ? (
-                            <ToggleRight className="w-5 h-5 text-green-600" />
-                          ) : (
-                            <ToggleLeft className="w-5 h-5 text-gray-400" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenDialog(categoria)}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(categoria.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+      <div className="space-y-2">
+        {categorias.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground bg-card rounded-xl border border-border">
+            Nenhuma categoria cadastrada
+          </div>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={categorias.map(c => c.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {categorias.map((categoria) => (
+                <SortableRow
+                  key={categoria.id}
+                  categoria={categoria}
+                  onToggleAtivo={handleToggleAtivo}
+                  onEdit={handleOpenDialog}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        )}
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
