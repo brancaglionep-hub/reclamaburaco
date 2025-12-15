@@ -218,7 +218,7 @@ const CityPage = () => {
               <p className="text-gray-500">Tempo médio de resposta</p>
             </div>
             <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-sm">
-              <p className="text-4xl font-bold text-primary mb-2">100%</p>
+              <p className="text-4xl font-bold text-green-500 mb-2">100%</p>
               <p className="text-gray-500">Reclamações analisadas</p>
             </div>
             <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-sm">
