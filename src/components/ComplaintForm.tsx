@@ -1,10 +1,23 @@
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Send, CheckCircle2, Pencil, Building2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Send, CheckCircle2, Pencil, Building2, Loader2 } from "lucide-react";
 import StepIndicator from "./StepIndicator";
 import LocationPicker from "./LocationPicker";
 import ProblemTypeSelector from "./ProblemTypeSelector";
 import MediaUpload from "./MediaUpload";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+const PREFEITURA_ID = "fd0e9b1b-a84b-4c33-b87a-3eb0250fc6f7";
+
+// Mapeamento de tipo de problema para categoria_id
+const categoriasMap: Record<string, string> = {
+  buraco: "8f2d827f-5443-4295-b2df-e74c1560c625",
+  danificada: "56fdd1de-3d07-4573-b7a8-229e9513576f",
+  alagada: "a9debd9c-6c7e-4bd9-99b1-5443573570bb",
+  desnivel: "e470a352-f7d0-4e17-aa6e-a114c4f2216e",
+  dificil: "672d8638-481d-488e-b6c1-4661c6bd21a4",
+  outro: "0d5f7468-9dad-4a5e-bca2-698d0029280e"
+};
 
 interface FormData {
   nome: string;
@@ -79,6 +92,8 @@ interface ComplaintFormProps {
 const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
   const [step, setStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [protocolo, setProtocolo] = useState<string>("");
   const [errors, setErrors] = useState<FormErrors>({});
   const [formData, setFormData] = useState<FormData>({
     nome: "",
@@ -206,9 +221,59 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
     }
   };
 
-  const handleSubmit = () => {
-    console.log("Reclamação enviada:", formData);
-    setIsSubmitted(true);
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    
+    try {
+      // Buscar bairro_id pelo nome
+      const { data: bairroData } = await supabase
+        .from("bairros")
+        .select("id")
+        .eq("nome", formData.bairro)
+        .eq("prefeitura_id", PREFEITURA_ID)
+        .maybeSingle();
+
+      const categoriaId = categoriasMap[formData.tipoProblema] || categoriasMap.outro;
+
+      const { data, error } = await supabase
+        .from("reclamacoes")
+        .insert({
+          prefeitura_id: PREFEITURA_ID,
+          nome_cidadao: formData.nome,
+          email_cidadao: formData.email,
+          telefone_cidadao: formData.telefone || null,
+          bairro_id: bairroData?.id || null,
+          categoria_id: categoriaId,
+          rua: formData.rua,
+          numero: formData.numero || null,
+          referencia: formData.referencia || null,
+          descricao: formData.descricao || formData.outroProblema || "Sem descrição adicional",
+          localizacao: formData.localizacao ? { lat: formData.localizacao.lat, lng: formData.localizacao.lng } : null,
+          fotos: [],
+          videos: []
+        } as any)
+        .select("protocolo")
+        .single();
+
+      if (error) throw error;
+
+      setProtocolo(data.protocolo);
+      setIsSubmitted(true);
+      
+      toast({
+        title: "Reclamação enviada!",
+        description: `Protocolo: ${data.protocolo}`,
+      });
+    } catch (error) {
+      console.error("Erro ao enviar reclamação:", error);
+      toast({
+        title: "Erro ao enviar",
+        description: "Tente novamente em alguns instantes.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isSubmitted) {
@@ -221,6 +286,12 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
           <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-3">
             Reclamação enviada com sucesso!
           </h2>
+          {protocolo && (
+            <div className="bg-primary/10 rounded-xl p-4 mb-6">
+              <p className="text-sm text-muted-foreground mb-1">Número do protocolo:</p>
+              <p className="text-xl font-bold text-primary">{protocolo}</p>
+            </div>
+          )}
           <p className="text-muted-foreground mb-8 lg:text-lg">
             A Prefeitura de Biguaçu irá analisar sua solicitação e tomar as providências necessárias.
           </p>
@@ -612,11 +683,21 @@ const ComplaintForm = ({ onClose }: ComplaintFormProps) => {
             ) : (
               <button
                 onClick={handleSubmit}
-                className="btn-hero w-full flex items-center justify-center gap-2"
+                disabled={isSubmitting}
+                className="btn-hero w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: "var(--gradient-success)" }}
               >
-                <Send className="w-5 h-5" />
-                Enviar Reclamação
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-5 h-5" />
+                    Enviar Reclamação
+                  </>
+                )}
               </button>
             )}
           </div>
