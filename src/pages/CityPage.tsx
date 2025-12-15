@@ -84,7 +84,7 @@ const CityPage = () => {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
-      <header className="bg-[#1e3a5f] text-white">
+      <header className="bg-[#3b82a0] text-white">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {prefeitura.logo_url ? (
@@ -178,7 +178,7 @@ const CityPage = () => {
 
       {/* Problem Types */}
       <section className="py-12 bg-white">
-        <div className="max-w-4xl mx-auto px-4">
+        <div className="max-w-5xl mx-auto px-4">
           <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-8">
             <h2 className="text-xl font-bold text-gray-900 text-center mb-8">
               Tipos de problemas que você pode informar
@@ -188,19 +188,19 @@ const CityPage = () => {
                 <span className="text-lg">⚫</span>
                 <span className="font-medium text-gray-700">Buracos</span>
               </div>
-              <div className="flex items-center gap-2 px-5 py-2.5 bg-orange-50 rounded-full">
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-gray-100 rounded-full">
                 <span className="text-lg">🚧</span>
                 <span className="font-medium text-gray-700">Rua danificada</span>
               </div>
-              <div className="flex items-center gap-2 px-5 py-2.5 bg-blue-50 rounded-full">
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-gray-100 rounded-full">
                 <span className="text-lg">🌊</span>
                 <span className="font-medium text-gray-700">Alagamento</span>
               </div>
-              <div className="flex items-center gap-2 px-5 py-2.5 bg-yellow-50 rounded-full">
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-gray-100 rounded-full">
                 <span className="text-lg">⚠️</span>
                 <span className="font-medium text-gray-700">Desnível</span>
               </div>
-              <div className="flex items-center gap-2 px-5 py-2.5 bg-red-50 rounded-full">
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-gray-100 rounded-full">
                 <span className="text-lg">🚗</span>
                 <span className="font-medium text-gray-700">Tráfego difícil</span>
               </div>
@@ -230,7 +230,7 @@ const CityPage = () => {
       </section>
 
       {/* Footer */}
-      <footer className="mt-auto bg-[#1e3a5f] text-white py-8">
+      <footer className="mt-auto bg-[#2d3748] text-white py-8">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
