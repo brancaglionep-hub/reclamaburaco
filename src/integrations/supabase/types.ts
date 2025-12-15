@@ -374,6 +374,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      consultar_historico_protocolo: {
+        Args: { _prefeitura_id: string; _protocolo: string }
+        Returns: {
+          created_at: string
+          id: string
+          observacao: string
+          status_anterior: string
+          status_novo: string
+        }[]
+      }
       consultar_protocolo: {
         Args: { _prefeitura_id: string; _protocolo: string }
         Returns: {
