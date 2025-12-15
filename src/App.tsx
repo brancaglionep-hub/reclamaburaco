@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminPrefeituras from "./pages/admin/AdminPrefeituras";
+import AdminUsuarios from "./pages/admin/AdminUsuarios";
 import PainelLayout from "./components/painel/PainelLayout";
 import PainelDashboard from "./pages/painel/PainelDashboard";
 import PainelReclamacoes from "./pages/painel/PainelReclamacoes";
@@ -36,6 +37,7 @@ const App = () => (
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="prefeituras" element={<AdminPrefeituras />} />
+            <Route path="usuarios" element={<AdminUsuarios />} />
           </Route>
           
           {/* Painel Prefeitura Routes */}
