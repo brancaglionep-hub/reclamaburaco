@@ -31,9 +31,8 @@ const App = () => (
           {/* Public Routes */}
           <Route path="/" element={<Home />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/:slug" element={<CityPage />} />
           
-          {/* Super Admin Routes */}
+          {/* Super Admin Routes - MUST come before /:slug */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="prefeituras" element={<AdminPrefeituras />} />
@@ -49,6 +48,9 @@ const App = () => (
             <Route path="categorias" element={<PainelCategorias />} />
             <Route path="configuracoes" element={<PainelConfiguracoes />} />
           </Route>
+          
+          {/* City page - must be LAST among dynamic routes */}
+          <Route path="/:slug" element={<CityPage />} />
           
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
