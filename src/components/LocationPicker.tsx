@@ -251,7 +251,7 @@ const LocationPicker = ({
             className="input-large"
             required
           >
-            <option value="">Selecione o bairro</option>
+            <option value="" disabled>Selecionar o bairro</option>
             {bairros.map((b) => (
               <option key={b} value={b}>{b}</option>
             ))}
