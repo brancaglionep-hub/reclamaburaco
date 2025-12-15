@@ -15,13 +15,11 @@ interface Reclamacao {
   protocolo: string;
   status: string;
   rua: string;
-  numero: string | null;
-  descricao: string;
   created_at: string;
   updated_at: string;
   resposta_prefeitura: string | null;
-  bairros?: { nome: string } | null;
-  categorias?: { nome: string } | null;
+  bairro_nome: string | null;
+  categoria_nome: string | null;
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -47,22 +45,10 @@ const ConsultaProtocolo = ({ onClose, prefeituraId }: ConsultaProtocoloProps) =>
     setReclamacao(null);
 
     const { data, error } = await supabase
-      .from("reclamacoes")
-      .select(`
-        id,
-        protocolo,
-        status,
-        rua,
-        numero,
-        descricao,
-        created_at,
-        updated_at,
-        resposta_prefeitura,
-        bairros (nome),
-        categorias (nome)
-      `)
-      .eq("prefeitura_id", prefeituraId)
-      .eq("protocolo", protocolo.trim().toUpperCase())
+      .rpc("consultar_protocolo", {
+        _protocolo: protocolo.trim().toUpperCase(),
+        _prefeitura_id: prefeituraId
+      })
       .maybeSingle();
 
     if (error) {
@@ -150,18 +136,18 @@ const ConsultaProtocolo = ({ onClose, prefeituraId }: ConsultaProtocoloProps) =>
                 <MapPin className="w-5 h-5 text-muted-foreground mt-0.5" />
                 <div>
                   <p className="font-medium text-foreground">
-                    {reclamacao.rua}{reclamacao.numero && `, ${reclamacao.numero}`}
+                    {reclamacao.rua}
                   </p>
-                  {reclamacao.bairros && (
-                    <p className="text-sm text-muted-foreground">{reclamacao.bairros.nome}</p>
+                  {reclamacao.bairro_nome && (
+                    <p className="text-sm text-muted-foreground">{reclamacao.bairro_nome}</p>
                   )}
                 </div>
               </div>
 
-              {reclamacao.categorias && (
+              {reclamacao.categoria_nome && (
                 <div className="flex items-center gap-3">
                   <FileText className="w-5 h-5 text-muted-foreground" />
-                  <p className="text-foreground">{reclamacao.categorias.nome}</p>
+                  <p className="text-foreground">{reclamacao.categoria_nome}</p>
                 </div>
               )}
 
@@ -171,13 +157,6 @@ const ConsultaProtocolo = ({ onClose, prefeituraId }: ConsultaProtocoloProps) =>
                   Registrado em {new Date(reclamacao.created_at).toLocaleDateString("pt-BR")}
                 </p>
               </div>
-
-              {reclamacao.descricao && (
-                <div className="pt-4 border-t border-border">
-                  <p className="text-sm font-medium text-muted-foreground mb-2">Descrição:</p>
-                  <p className="text-foreground">{reclamacao.descricao}</p>
-                </div>
-              )}
 
               {reclamacao.resposta_prefeitura && (
                 <div className="pt-4 border-t border-border">

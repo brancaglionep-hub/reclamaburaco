@@ -374,6 +374,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      consultar_protocolo: {
+        Args: { _prefeitura_id: string; _protocolo: string }
+        Returns: {
+          bairro_nome: string
+          categoria_nome: string
+          created_at: string
+          id: string
+          protocolo: string
+          resposta_prefeitura: string
+          rua: string
+          status: Database["public"]["Enums"]["complaint_status"]
+          updated_at: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
