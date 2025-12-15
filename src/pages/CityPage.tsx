@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { Building2, Phone, Mail, AlertTriangle, ArrowRight, Clock, MapPin, Shield, CircleDot, Construction, Droplets, AlertCircle, Car } from "lucide-react";
+import { Building2, Phone, AlertTriangle, ArrowRight, Clock, MapPin, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import ComplaintForm from "@/components/ComplaintForm";
 import ConsultaProtocolo from "@/components/ConsultaProtocolo";
@@ -19,14 +19,6 @@ interface Prefeitura {
   email_contato: string | null;
   telefone_contato: string | null;
 }
-
-const problemTypes = [
-  { icon: CircleDot, label: "Buracos", color: "bg-gray-100" },
-  { icon: Construction, label: "Rua danificada", color: "bg-orange-50" },
-  { icon: Droplets, label: "Alagamento", color: "bg-blue-50" },
-  { icon: AlertCircle, label: "Desnível", color: "bg-yellow-50" },
-  { icon: Car, label: "Tráfego difícil", color: "bg-red-50" },
-];
 
 const CityPage = () => {
   const { slug } = useParams();
@@ -149,24 +141,24 @@ const CityPage = () => {
               </div>
 
               {/* Features */}
-              <div className="flex flex-wrap gap-8 mt-10">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
-                    <Clock className="w-6 h-6 text-primary" />
+              <div className="flex flex-wrap justify-center gap-12 mt-10">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 rounded-full bg-[#e8f4fc] flex items-center justify-center">
+                    <Clock className="w-8 h-8 text-[#4a90a4]" />
                   </div>
-                  <span className="text-gray-600">Rápido e fácil</span>
+                  <span className="text-gray-600 text-sm">Rápido e fácil</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
-                    <MapPin className="w-6 h-6 text-primary" />
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 rounded-full bg-[#e8f5e9] flex items-center justify-center">
+                    <MapPin className="w-8 h-8 text-[#4caf50]" />
                   </div>
-                  <span className="text-gray-600">Com localização</span>
+                  <span className="text-gray-600 text-sm">Com localização</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
-                    <Shield className="w-6 h-6 text-primary" />
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-16 h-16 rounded-full bg-[#e8f4fc] flex items-center justify-center">
+                    <Shield className="w-8 h-8 text-[#4a90a4]" />
                   </div>
-                  <span className="text-gray-600">Dados protegidos</span>
+                  <span className="text-gray-600 text-sm">Dados protegidos</span>
                 </div>
               </div>
             </div>
@@ -185,21 +177,34 @@ const CityPage = () => {
       </section>
 
       {/* Problem Types */}
-      <section className="py-16 bg-white">
+      <section className="py-12 bg-white">
         <div className="max-w-4xl mx-auto px-4">
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-10">
-            Tipos de problemas que você pode informar
-          </h2>
-          <div className="flex flex-wrap justify-center gap-4">
-            {problemTypes.map((type, i) => (
-              <div
-                key={i}
-                className={`flex items-center gap-3 px-6 py-3 ${type.color} rounded-full border border-gray-200`}
-              >
-                <type.icon className="w-5 h-5 text-gray-700" />
-                <span className="font-medium text-gray-700">{type.label}</span>
+          <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-8">
+            <h2 className="text-xl font-bold text-gray-900 text-center mb-8">
+              Tipos de problemas que você pode informar
+            </h2>
+            <div className="flex flex-wrap justify-center gap-3">
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-gray-100 rounded-full">
+                <span className="text-lg">⚫</span>
+                <span className="font-medium text-gray-700">Buracos</span>
               </div>
-            ))}
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-orange-50 rounded-full">
+                <span className="text-lg">🚧</span>
+                <span className="font-medium text-gray-700">Rua danificada</span>
+              </div>
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-blue-50 rounded-full">
+                <span className="text-lg">🌊</span>
+                <span className="font-medium text-gray-700">Alagamento</span>
+              </div>
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-yellow-50 rounded-full">
+                <span className="text-lg">⚠️</span>
+                <span className="font-medium text-gray-700">Desnível</span>
+              </div>
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-red-50 rounded-full">
+                <span className="text-lg">🚗</span>
+                <span className="font-medium text-gray-700">Tráfego difícil</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
