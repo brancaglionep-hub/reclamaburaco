@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Users, Building2, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Plus, Trash2, Users, Building2, Eye, EyeOff, Loader2, Edit2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +55,7 @@ const AdminUsuarios = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserRole | null>(null);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -107,62 +108,125 @@ const AdminUsuarios = () => {
     fetchData();
   }, []);
 
-  const handleOpenDialog = () => {
-    setFormData({
-      email: "",
-      password: "",
-      nome: "",
-      prefeitura_id: ""
-    });
+  const handleOpenDialog = (user?: UserRole) => {
+    if (user) {
+      setEditingUser(user);
+      setFormData({
+        email: user.profile?.email || "",
+        password: "",
+        nome: user.profile?.nome || "",
+        prefeitura_id: user.prefeitura_id || ""
+      });
+    } else {
+      setEditingUser(null);
+      setFormData({
+        email: "",
+        password: "",
+        nome: "",
+        prefeitura_id: ""
+      });
+    }
     setShowPassword(false);
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
-    if (!formData.email || !formData.password || !formData.prefeitura_id) {
-      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
-      return;
-    }
+    if (!editingUser) {
+      // Creating new user
+      if (!formData.email || !formData.password || !formData.prefeitura_id) {
+        toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
+        return;
+      }
 
-    if (formData.password.length < 6) {
-      toast({ title: "A senha deve ter no mínimo 6 caracteres", variant: "destructive" });
-      return;
-    }
+      if (formData.password.length < 6) {
+        toast({ title: "A senha deve ter no mínimo 6 caracteres", variant: "destructive" });
+        return;
+      }
 
-    setSaving(true);
+      setSaving(true);
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const response = await supabase.functions.invoke('create-user', {
-        body: {
+      try {
+        const response = await supabase.functions.invoke('create-user', {
+          body: {
+            email: formData.email,
+            password: formData.password,
+            nome: formData.nome,
+            prefeitura_id: formData.prefeitura_id
+          }
+        });
+
+        if (response.error) {
+          throw new Error(response.error.message || 'Erro ao criar usuário');
+        }
+
+        if (response.data?.error) {
+          throw new Error(response.data.error);
+        }
+
+        toast({ title: "Usuário criado com sucesso!" });
+        setDialogOpen(false);
+        fetchData();
+      } catch (error: any) {
+        console.error('Error creating user:', error);
+        toast({ 
+          title: "Erro ao criar usuário", 
+          description: error.message,
+          variant: "destructive" 
+        });
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      // Updating existing user
+      if (!formData.email || !formData.prefeitura_id) {
+        toast({ title: "E-mail e prefeitura são obrigatórios", variant: "destructive" });
+        return;
+      }
+
+      if (formData.password && formData.password.length < 6) {
+        toast({ title: "A senha deve ter no mínimo 6 caracteres", variant: "destructive" });
+        return;
+      }
+
+      setSaving(true);
+
+      try {
+        const updateData: any = {
+          user_id: editingUser.user_id,
           email: formData.email,
-          password: formData.password,
           nome: formData.nome,
           prefeitura_id: formData.prefeitura_id
+        };
+
+        if (formData.password) {
+          updateData.password = formData.password;
         }
-      });
 
-      if (response.error) {
-        throw new Error(response.error.message || 'Erro ao criar usuário');
+        const response = await supabase.functions.invoke('update-user', {
+          body: updateData
+        });
+
+        if (response.error) {
+          throw new Error(response.error.message || 'Erro ao atualizar usuário');
+        }
+
+        if (response.data?.error) {
+          throw new Error(response.data.error);
+        }
+
+        toast({ title: "Usuário atualizado com sucesso!" });
+        setDialogOpen(false);
+        fetchData();
+      } catch (error: any) {
+        console.error('Error updating user:', error);
+        toast({ 
+          title: "Erro ao atualizar usuário", 
+          description: error.message,
+          variant: "destructive" 
+        });
+      } finally {
+        setSaving(false);
       }
-
-      if (response.data?.error) {
-        throw new Error(response.data.error);
-      }
-
-      toast({ title: "Usuário criado com sucesso!" });
-      setDialogOpen(false);
-      fetchData();
-    } catch (error: any) {
-      console.error('Error creating user:', error);
-      toast({ 
-        title: "Erro ao criar usuário", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -209,7 +273,7 @@ const AdminUsuarios = () => {
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Usuários</h1>
           <p className="text-muted-foreground mt-1">Gerencie os administradores das prefeituras</p>
         </div>
-        <Button onClick={handleOpenDialog}>
+        <Button onClick={() => handleOpenDialog()}>
           <Plus className="w-4 h-4 mr-2" />
           Novo Usuário
         </Button>
@@ -251,14 +315,23 @@ const AdminUsuarios = () => {
                     {new Date(user.created_at).toLocaleDateString("pt-BR")}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(user.user_id, user.profile?.email || "")}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenDialog(user)}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(user.user_id, user.profile?.email || "")}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -271,7 +344,9 @@ const AdminUsuarios = () => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Novo Usuário</DialogTitle>
+            <DialogTitle>
+              {editingUser ? "Editar Usuário" : "Novo Usuário"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div>
@@ -310,11 +385,13 @@ const AdminUsuarios = () => {
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-2 block">Senha *</label>
+              <label className="text-sm font-medium mb-2 block">
+                {editingUser ? "Nova Senha (deixe em branco para manter)" : "Senha *"}
+              </label>
               <div className="relative">
                 <Input
                   type={showPassword ? "text" : "password"}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={editingUser ? "••••••••" : "Mínimo 6 caracteres"}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="pr-10"
@@ -336,10 +413,10 @@ const AdminUsuarios = () => {
                 {saving ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Criando...
+                    {editingUser ? "Salvando..." : "Criando..."}
                   </>
                 ) : (
-                  "Criar Usuário"
+                  editingUser ? "Salvar" : "Criar Usuário"
                 )}
               </Button>
             </div>
