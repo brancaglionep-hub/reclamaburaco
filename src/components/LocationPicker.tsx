@@ -9,6 +9,7 @@ interface LocationPickerProps {
   numero: string;
   referencia: string;
   localizacao: { lat: number; lng: number } | null;
+  bairroError?: string;
   onBairroChange: (value: string) => void;
   onRuaChange: (value: string) => void;
   onNumeroChange: (value: string) => void;
@@ -52,6 +53,7 @@ const LocationPicker = ({
   numero,
   referencia,
   localizacao,
+  bairroError,
   onBairroChange,
   onRuaChange,
   onNumeroChange,
@@ -260,10 +262,13 @@ const LocationPicker = ({
               type="text"
               value={bairro === "Outro" ? "" : (bairros.includes(bairro) ? "" : bairro)}
               placeholder="Digite o nome do bairro"
-              className="input-large mt-2"
+              className={`input-large mt-2 ${bairroError ? "border-destructive ring-destructive/20" : ""}`}
               onChange={(e) => onBairroChange(e.target.value || "Outro")}
               required
             />
+          )}
+          {bairroError && (
+            <p className="text-destructive text-sm mt-1">{bairroError}</p>
           )}
         </div>
 
