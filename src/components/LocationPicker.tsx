@@ -244,7 +244,7 @@ const LocationPicker = ({
         <div>
           <label className="block text-sm font-medium mb-2">Bairro *</label>
           <select
-            value={bairro}
+            value={bairros.includes(bairro) ? bairro : "Outro"}
             onChange={(e) => onBairroChange(e.target.value)}
             className="input-large"
             required
@@ -254,6 +254,17 @@ const LocationPicker = ({
               <option key={b} value={b}>{b}</option>
             ))}
           </select>
+          
+          {(bairro === "Outro" || (!bairros.includes(bairro) && bairro !== "")) && (
+            <input
+              type="text"
+              value={bairro === "Outro" ? "" : (bairros.includes(bairro) ? "" : bairro)}
+              placeholder="Digite o nome do bairro"
+              className="input-large mt-2"
+              onChange={(e) => onBairroChange(e.target.value || "Outro")}
+              required
+            />
+          )}
         </div>
 
         <div>
