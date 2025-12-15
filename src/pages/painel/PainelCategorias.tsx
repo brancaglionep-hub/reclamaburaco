@@ -97,12 +97,14 @@ const PainelCategorias = () => {
     setCategorias(newCategorias);
     setDraggedId(null);
 
-    // Update order in database
+    // Update order in database - only for local categories (not global)
     for (let i = 0; i < newCategorias.length; i++) {
-      await supabase
-        .from("categorias")
-        .update({ ordem: i })
-        .eq("id", newCategorias[i].id);
+      if (!newCategorias[i].global) {
+        await supabase
+          .from("categorias")
+          .update({ ordem: i })
+          .eq("id", newCategorias[i].id);
+      }
     }
 
     toast({ title: "Ordem atualizada!" });
@@ -167,7 +169,11 @@ const PainelCategorias = () => {
 
   const handleToggleAtivo = async (categoria: Categoria) => {
     if (categoria.global) {
-      toast({ title: "Categorias globais não podem ser alteradas", variant: "destructive" });
+      toast({ 
+        title: "Categoria global", 
+        description: "Crie uma categoria local para personalizá-la", 
+        variant: "destructive" 
+      });
       return;
     }
 
@@ -213,7 +219,9 @@ const PainelCategorias = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Categorias</h1>
-          <p className="text-muted-foreground mt-1">Arraste para reordenar as categorias</p>
+          <p className="text-muted-foreground mt-1">
+            Crie categorias locais para sua prefeitura. Categorias globais são compartilhadas.
+          </p>
         </div>
         <Button onClick={() => handleOpenDialog()}>
           <Plus className="w-4 h-4 mr-2" />
