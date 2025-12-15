@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, MapPin, Building2, ChevronRight, Map, Clock, Shield, Navigation } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
-import heroBg from "@/assets/hero-city-bg.jpg";
 
 interface Prefeitura {
   id: string;
@@ -12,6 +11,56 @@ interface Prefeitura {
   slug: string;
   logo_url: string | null;
 }
+
+// Memoized city card component
+const CityCard = memo(({ prefeitura, onClick }: { prefeitura: Prefeitura; onClick: () => void }) => (
+  <button
+    onClick={onClick}
+    className="group relative bg-card rounded-2xl border border-border p-6 text-left hover:border-primary hover:shadow-xl transition-all duration-300 overflow-hidden"
+  >
+    <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-primary/5 to-transparent rounded-bl-full -mr-10 -mt-10 group-hover:from-primary/15 transition-colors" />
+    
+    <div className="relative flex items-center gap-4">
+      {prefeitura.logo_url ? (
+        <img 
+          src={prefeitura.logo_url} 
+          alt={prefeitura.cidade}
+          loading="lazy"
+          decoding="async"
+          className="w-16 h-16 object-contain rounded-xl bg-white p-1"
+        />
+      ) : (
+        <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shrink-0 shadow-lg">
+          <MapPin className="w-8 h-8 text-white" />
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <h3 className="font-bold text-foreground text-xl group-hover:text-primary transition-colors truncate">
+          {prefeitura.cidade}
+        </h3>
+        <p className="text-sm text-muted-foreground truncate">
+          {prefeitura.nome}
+        </p>
+      </div>
+      <ChevronRight className="w-6 h-6 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-1 transition-all" />
+    </div>
+  </button>
+));
+
+CityCard.displayName = "CityCard";
+
+// Feature card component
+const FeatureCard = memo(({ icon: Icon, title, description }: { icon: typeof Clock; title: string; description: string }) => (
+  <div className="text-center group">
+    <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5 group-hover:bg-primary/20 transition-colors">
+      <Icon className="w-10 h-10 text-primary" />
+    </div>
+    <h4 className="font-bold text-foreground text-lg mb-2">{title}</h4>
+    <p className="text-muted-foreground">{description}</p>
+  </div>
+));
+
+FeatureCard.displayName = "FeatureCard";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -36,24 +85,27 @@ const Home = () => {
     fetchPrefeituras();
   }, []);
 
-  const filteredPrefeituras = prefeituras.filter(p => 
-    p.cidade.toLowerCase().includes(search.toLowerCase()) ||
-    p.nome.toLowerCase().includes(search.toLowerCase())
-  );
+  // Memoized search filter
+  const filteredPrefeituras = useMemo(() => {
+    if (!search.trim()) return prefeituras;
+    const searchLower = search.toLowerCase();
+    return prefeituras.filter(p => 
+      p.cidade.toLowerCase().includes(searchLower) ||
+      p.nome.toLowerCase().includes(searchLower)
+    );
+  }, [prefeituras, search]);
+
+  // Memoized navigation handler
+  const handleCityClick = useCallback((slug: string) => {
+    navigate(`/${slug}`);
+  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section with Background */}
-      <section 
-        className="relative min-h-[70vh] lg:min-h-[80vh] flex items-center justify-center"
-        style={{
-          backgroundImage: `url(${heroBg})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
+      {/* Hero Section with CSS Background (no JS image loading) */}
+      <section className="relative min-h-[70vh] lg:min-h-[80vh] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60" />
         
         {/* Header */}
         <header className="absolute top-0 left-0 right-0 z-20">
@@ -120,7 +172,7 @@ const Home = () => {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
             {loading ? (
               <div className="col-span-full text-center py-20">
-                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                 <p className="text-muted-foreground">Carregando cidades...</p>
               </div>
             ) : filteredPrefeituras.length === 0 ? (
@@ -132,37 +184,11 @@ const Home = () => {
               </div>
             ) : (
               filteredPrefeituras.map((prefeitura) => (
-                <button
+                <CityCard
                   key={prefeitura.id}
-                  onClick={() => navigate(`/${prefeitura.slug}`)}
-                  className="group relative bg-card rounded-2xl border border-border p-6 text-left hover:border-primary hover:shadow-xl transition-all duration-300 overflow-hidden"
-                >
-                  {/* Background decoration */}
-                  <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-primary/5 to-transparent rounded-bl-full -mr-10 -mt-10 group-hover:from-primary/15 transition-colors" />
-                  
-                  <div className="relative flex items-center gap-4">
-                    {prefeitura.logo_url ? (
-                      <img 
-                        src={prefeitura.logo_url} 
-                        alt={prefeitura.cidade} 
-                        className="w-16 h-16 object-contain rounded-xl bg-white p-1"
-                      />
-                    ) : (
-                      <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shrink-0 shadow-lg">
-                        <MapPin className="w-8 h-8 text-white" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-foreground text-xl group-hover:text-primary transition-colors truncate">
-                        {prefeitura.cidade}
-                      </h3>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {prefeitura.nome}
-                      </p>
-                    </div>
-                    <ChevronRight className="w-6 h-6 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                  </div>
-                </button>
+                  prefeitura={prefeitura}
+                  onClick={() => handleCityClick(prefeitura.slug)}
+                />
               ))
             )}
           </div>
@@ -182,35 +208,21 @@ const Home = () => {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center group">
-              <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5 group-hover:bg-primary/20 transition-colors">
-                <Clock className="w-10 h-10 text-primary" />
-              </div>
-              <h4 className="font-bold text-foreground text-lg mb-2">Rápido e Fácil</h4>
-              <p className="text-muted-foreground">
-                Registre sua reclamação em poucos minutos, direto do celular
-              </p>
-            </div>
-            
-            <div className="text-center group">
-              <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5 group-hover:bg-primary/20 transition-colors">
-                <Navigation className="w-10 h-10 text-primary" />
-              </div>
-              <h4 className="font-bold text-foreground text-lg mb-2">Localização Exata</h4>
-              <p className="text-muted-foreground">
-                Use o GPS para marcar o local exato do problema na rua
-              </p>
-            </div>
-            
-            <div className="text-center group">
-              <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5 group-hover:bg-primary/20 transition-colors">
-                <Shield className="w-10 h-10 text-primary" />
-              </div>
-              <h4 className="font-bold text-foreground text-lg mb-2">Dados Protegidos</h4>
-              <p className="text-muted-foreground">
-                Suas informações pessoais estão seguras e protegidas
-              </p>
-            </div>
+            <FeatureCard
+              icon={Clock}
+              title="Rápido e Fácil"
+              description="Registre sua reclamação em poucos minutos, direto do celular"
+            />
+            <FeatureCard
+              icon={Navigation}
+              title="Localização Exata"
+              description="Use o GPS para marcar o local exato do problema na rua"
+            />
+            <FeatureCard
+              icon={Shield}
+              title="Dados Protegidos"
+              description="Suas informações pessoais estão seguras e protegidas"
+            />
           </div>
         </div>
       </section>
