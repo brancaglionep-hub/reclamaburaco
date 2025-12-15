@@ -14,16 +14,378 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bairros: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          id: string
+          nome: string
+          prefeitura_id: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          id?: string
+          nome: string
+          prefeitura_id: string
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          id?: string
+          nome?: string
+          prefeitura_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bairros_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      categorias: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          descricao: string | null
+          global: boolean | null
+          icone: string | null
+          id: string
+          nome: string
+          prefeitura_id: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          global?: boolean | null
+          icone?: string | null
+          id?: string
+          nome: string
+          prefeitura_id?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          global?: boolean | null
+          icone?: string | null
+          id?: string
+          nome?: string
+          prefeitura_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categorias_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historico_status: {
+        Row: {
+          created_at: string | null
+          id: string
+          observacao: string | null
+          reclamacao_id: string
+          status_anterior:
+            | Database["public"]["Enums"]["complaint_status"]
+            | null
+          status_novo: Database["public"]["Enums"]["complaint_status"]
+          usuario_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          observacao?: string | null
+          reclamacao_id: string
+          status_anterior?:
+            | Database["public"]["Enums"]["complaint_status"]
+            | null
+          status_novo: Database["public"]["Enums"]["complaint_status"]
+          usuario_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          observacao?: string | null
+          reclamacao_id?: string
+          status_anterior?:
+            | Database["public"]["Enums"]["complaint_status"]
+            | null
+          status_novo?: Database["public"]["Enums"]["complaint_status"]
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_status_reclamacao_id_fkey"
+            columns: ["reclamacao_id"]
+            isOneToOne: false
+            referencedRelation: "reclamacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prefeituras: {
+        Row: {
+          ativo: boolean | null
+          cidade: string
+          cor_primaria: string | null
+          cor_secundaria: string | null
+          created_at: string | null
+          email_contato: string | null
+          estado: string
+          id: string
+          logo_url: string | null
+          nome: string
+          slug: string
+          telefone_contato: string | null
+          texto_institucional: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          cidade: string
+          cor_primaria?: string | null
+          cor_secundaria?: string | null
+          created_at?: string | null
+          email_contato?: string | null
+          estado?: string
+          id?: string
+          logo_url?: string | null
+          nome: string
+          slug: string
+          telefone_contato?: string | null
+          texto_institucional?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          cidade?: string
+          cor_primaria?: string | null
+          cor_secundaria?: string | null
+          created_at?: string | null
+          email_contato?: string | null
+          estado?: string
+          id?: string
+          logo_url?: string | null
+          nome?: string
+          slug?: string
+          telefone_contato?: string | null
+          texto_institucional?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+          nome: string | null
+          prefeitura_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id: string
+          nome?: string | null
+          prefeitura_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          nome?: string | null
+          prefeitura_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reclamacoes: {
+        Row: {
+          bairro_id: string | null
+          categoria_id: string | null
+          created_at: string | null
+          descricao: string
+          email_cidadao: string
+          fotos: string[] | null
+          id: string
+          localizacao: Json | null
+          nome_cidadao: string
+          numero: string | null
+          prefeitura_id: string
+          protocolo: string
+          referencia: string | null
+          resposta_prefeitura: string | null
+          rua: string
+          status: Database["public"]["Enums"]["complaint_status"] | null
+          telefone_cidadao: string | null
+          updated_at: string | null
+          videos: string[] | null
+        }
+        Insert: {
+          bairro_id?: string | null
+          categoria_id?: string | null
+          created_at?: string | null
+          descricao: string
+          email_cidadao: string
+          fotos?: string[] | null
+          id?: string
+          localizacao?: Json | null
+          nome_cidadao: string
+          numero?: string | null
+          prefeitura_id: string
+          protocolo: string
+          referencia?: string | null
+          resposta_prefeitura?: string | null
+          rua: string
+          status?: Database["public"]["Enums"]["complaint_status"] | null
+          telefone_cidadao?: string | null
+          updated_at?: string | null
+          videos?: string[] | null
+        }
+        Update: {
+          bairro_id?: string | null
+          categoria_id?: string | null
+          created_at?: string | null
+          descricao?: string
+          email_cidadao?: string
+          fotos?: string[] | null
+          id?: string
+          localizacao?: Json | null
+          nome_cidadao?: string
+          numero?: string | null
+          prefeitura_id?: string
+          protocolo?: string
+          referencia?: string | null
+          resposta_prefeitura?: string | null
+          rua?: string
+          status?: Database["public"]["Enums"]["complaint_status"] | null
+          telefone_cidadao?: string | null
+          updated_at?: string | null
+          videos?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reclamacoes_bairro_id_fkey"
+            columns: ["bairro_id"]
+            isOneToOne: false
+            referencedRelation: "bairros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reclamacoes_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reclamacoes_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          prefeitura_id: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          prefeitura_id?: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          prefeitura_id?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visitas: {
+        Row: {
+          created_at: string | null
+          id: string
+          pagina: string
+          prefeitura_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          pagina: string
+          prefeitura_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          pagina?: string
+          prefeitura_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitas_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_prefeitura_admin: {
+        Args: { _prefeitura_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "super_admin" | "admin_prefeitura" | "user"
+      complaint_status: "recebida" | "em_andamento" | "resolvida" | "arquivada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +512,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["super_admin", "admin_prefeitura", "user"],
+      complaint_status: ["recebida", "em_andamento", "resolvida", "arquivada"],
+    },
   },
 } as const
