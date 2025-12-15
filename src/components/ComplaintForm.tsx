@@ -223,6 +223,34 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
     }
   };
 
+  const uploadMedia = async (files: File[], folder: string): Promise<string[]> => {
+    const urls: string[] = [];
+    
+    for (const file of files) {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('reclamacoes-media')
+        .upload(fileName, file);
+      
+      if (uploadError) {
+        console.error('Erro ao fazer upload:', uploadError);
+        continue;
+      }
+      
+      const { data: urlData } = supabase.storage
+        .from('reclamacoes-media')
+        .getPublicUrl(fileName);
+      
+      if (urlData?.publicUrl) {
+        urls.push(urlData.publicUrl);
+      }
+    }
+    
+    return urls;
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     
@@ -236,6 +264,10 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
         .maybeSingle();
 
       const categoriaId = categoriasMap[formData.tipoProblema] || categoriasMap.outro;
+
+      // Upload de fotos e vídeos
+      const fotoUrls = await uploadMedia(formData.fotos, 'fotos');
+      const videoUrls = await uploadMedia(formData.videos, 'videos');
 
       const { data, error } = await supabase
         .from("reclamacoes")
@@ -251,8 +283,8 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
           referencia: formData.referencia || null,
           descricao: formData.descricao || formData.outroProblema || "Sem descrição adicional",
           localizacao: formData.localizacao ? { lat: formData.localizacao.lat, lng: formData.localizacao.lng } : null,
-          fotos: [],
-          videos: []
+          fotos: fotoUrls,
+          videos: videoUrls
         } as any)
         .select("protocolo")
         .single();
