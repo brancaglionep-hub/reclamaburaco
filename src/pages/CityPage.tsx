@@ -169,8 +169,8 @@ const CityPage = () => {
               {/* Features */}
               <div className="grid grid-cols-3 gap-4 pt-4">
                 <div className="flex flex-col items-center gap-2 text-center">
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-accent flex items-center justify-center">
-                    <Clock className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-blue-50 flex items-center justify-center">
+                    <Clock className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600" />
                   </div>
                   <span className="text-muted-foreground text-xs sm:text-sm font-medium">Rápido e fácil</span>
                 </div>
@@ -181,8 +181,8 @@ const CityPage = () => {
                   <span className="text-muted-foreground text-xs sm:text-sm font-medium">Com localização</span>
                 </div>
                 <div className="flex flex-col items-center gap-2 text-center">
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-accent flex items-center justify-center">
-                    <Shield className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-blue-50 flex items-center justify-center">
+                    <Shield className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600" />
                   </div>
                   <span className="text-muted-foreground text-xs sm:text-sm font-medium">Dados protegidos</span>
                 </div>
