@@ -79,8 +79,8 @@ const CityPage = () => {
             <Construction className="w-12 h-12 text-orange-500 relative z-10" />
           </div>
           {/* Cones */}
-          <div className="absolute -bottom-1 -left-2 w-4 h-6 bg-orange-500 rounded-t-sm" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }} />
-          <div className="absolute -bottom-1 -right-2 w-4 h-6 bg-orange-500 rounded-t-sm" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }} />
+          <div className="absolute -bottom-1 -left-2 w-4 h-6 bg-orange-500 rounded-t-sm origin-bottom animate-swing" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }} />
+          <div className="absolute -bottom-1 -right-2 w-4 h-6 bg-orange-500 rounded-t-sm origin-bottom animate-swing-reverse" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }} />
         </div>
         
         <h1 className="text-2xl font-bold text-foreground mb-2">Cidade não encontrada</h1>
