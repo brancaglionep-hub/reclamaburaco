@@ -82,19 +82,19 @@ const CityPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="bg-[#2273c3] text-white">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <header className="bg-primary text-primary-foreground shadow-md">
+        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {prefeitura.logo_url ? (
-              <img src={prefeitura.logo_url} alt={prefeitura.nome} className="w-10 h-10 object-contain" />
+              <img src={prefeitura.logo_url} alt={prefeitura.nome} className="w-9 h-9 object-contain" />
             ) : (
-              <Building2 className="w-8 h-8" />
+              <Building2 className="w-7 h-7" />
             )}
-            <div className="flex items-center gap-2">
-              <p className="font-semibold">{prefeitura.nome}</p>
-              <span className="text-sm text-white/70">| {prefeitura.estado || "Santa Catarina"}</span>
+            <div className="flex items-center gap-1.5">
+              <p className="font-semibold text-sm sm:text-base">{prefeitura.nome}</p>
+              <span className="text-xs sm:text-sm text-primary-foreground/70">| {prefeitura.estado || "SC"}</span>
             </div>
           </div>
           {prefeitura.telefone_contato && (
@@ -107,58 +107,61 @@ const CityPage = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-6xl mx-auto px-4 py-12 lg:py-20">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <span className="inline-block px-4 py-1.5 bg-primary/10 text-primary rounded-full text-sm font-medium mb-6">
+      <section className="flex-1">
+        <div className="max-w-6xl mx-auto px-5 py-8 sm:py-12 lg:py-20">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            <div className="space-y-6">
+              <span className="inline-block px-4 py-1.5 bg-primary/10 text-primary rounded-full text-sm font-medium">
                 Serviço Municipal
               </span>
-              <h1 className="text-3xl lg:text-5xl font-bold text-gray-900 mb-4">
-                Reclamações de Ruas
-              </h1>
-              <p className="text-xl text-gray-600 mb-2">
-                Encontrou um problema na sua rua?
-              </p>
-              <p className="text-gray-500 mb-8">
-                Avise a {prefeitura.nome} de forma rápida e fácil. Sua participação ajuda a melhorar nossa cidade.
-              </p>
               
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="space-y-3">
+                <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-foreground leading-tight">
+                  Reclamações de Ruas
+                </h1>
+                <p className="text-lg sm:text-xl text-muted-foreground">
+                  Encontrou um problema na sua rua?
+                </p>
+                <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
+                  Avise a {prefeitura.nome} de forma rápida e fácil. Sua participação ajuda a melhorar nossa cidade.
+                </p>
+              </div>
+              
+              <div className="flex flex-col gap-3 pt-2">
                 <button
                   onClick={() => setShowForm(true)}
-                  className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-[0.98]"
                 >
                   Informar problema na rua
                   <ArrowRight className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => setShowConsulta(true)}
-                  className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-gray-700 font-semibold rounded-xl border-2 border-gray-200 hover:border-primary hover:text-primary transition-colors"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 bg-card text-foreground font-semibold rounded-xl border-2 border-border hover:border-primary hover:text-primary transition-all"
                 >
                   Consultar protocolo
                 </button>
               </div>
 
               {/* Features */}
-              <div className="flex flex-wrap justify-center gap-12 mt-10">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-16 h-16 rounded-full bg-[#e8f4fc] flex items-center justify-center">
-                    <Clock className="w-8 h-8 text-[#4a90a4]" />
+              <div className="grid grid-cols-3 gap-4 pt-4">
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-accent flex items-center justify-center">
+                    <Clock className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
                   </div>
-                  <span className="text-gray-600 text-sm">Rápido e fácil</span>
+                  <span className="text-muted-foreground text-xs sm:text-sm font-medium">Rápido e fácil</span>
                 </div>
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-16 h-16 rounded-full bg-[#e8f5e9] flex items-center justify-center">
-                    <MapPin className="w-8 h-8 text-[#4caf50]" />
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-green-50 flex items-center justify-center">
+                    <MapPin className="w-6 h-6 sm:w-7 sm:h-7 text-green-600" />
                   </div>
-                  <span className="text-gray-600 text-sm">Com localização</span>
+                  <span className="text-muted-foreground text-xs sm:text-sm font-medium">Com localização</span>
                 </div>
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-16 h-16 rounded-full bg-[#e8f4fc] flex items-center justify-center">
-                    <Shield className="w-8 h-8 text-[#4a90a4]" />
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-accent flex items-center justify-center">
+                    <Shield className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
                   </div>
-                  <span className="text-gray-600 text-sm">Dados protegidos</span>
+                  <span className="text-muted-foreground text-xs sm:text-sm font-medium">Dados protegidos</span>
                 </div>
               </div>
             </div>
@@ -170,6 +173,7 @@ const CityPage = () => {
                 src={heroImage}
                 alt="Trabalhadores consertando rua"
                 className="w-full h-auto rounded-3xl shadow-2xl"
+                loading="lazy"
               />
             </div>
           </div>
@@ -177,69 +181,60 @@ const CityPage = () => {
       </section>
 
       {/* Problem Types */}
-      <section className="py-12 bg-white">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-8">
-            <h2 className="text-xl font-bold text-gray-900 text-center mb-8">
+      <section className="py-8 sm:py-12 bg-muted/30">
+        <div className="max-w-5xl mx-auto px-5">
+          <div className="bg-card rounded-2xl border border-border shadow-sm p-5 sm:p-8">
+            <h2 className="text-base sm:text-lg font-bold text-foreground text-center mb-5 sm:mb-6">
               Tipos de problemas que você pode informar
             </h2>
-            <div className="flex flex-wrap justify-center gap-3">
-              <div className="flex items-center gap-2 px-5 py-2.5 bg-gray-100 rounded-full">
-                <span className="text-lg">⚫</span>
-                <span className="font-medium text-gray-700">Buracos</span>
-              </div>
-              <div className="flex items-center gap-2 px-5 py-2.5 bg-gray-100 rounded-full">
-                <span className="text-lg">🚧</span>
-                <span className="font-medium text-gray-700">Rua danificada</span>
-              </div>
-              <div className="flex items-center gap-2 px-5 py-2.5 bg-gray-100 rounded-full">
-                <span className="text-lg">🌊</span>
-                <span className="font-medium text-gray-700">Alagamento</span>
-              </div>
-              <div className="flex items-center gap-2 px-5 py-2.5 bg-gray-100 rounded-full">
-                <span className="text-lg">⚠️</span>
-                <span className="font-medium text-gray-700">Desnível</span>
-              </div>
-              <div className="flex items-center gap-2 px-5 py-2.5 bg-gray-100 rounded-full">
-                <span className="text-lg">🚗</span>
-                <span className="font-medium text-gray-700">Tráfego difícil</span>
-              </div>
+            <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+              {[
+                { emoji: "⚫", label: "Buracos" },
+                { emoji: "🚧", label: "Rua danificada" },
+                { emoji: "🌊", label: "Alagamento" },
+                { emoji: "⚠️", label: "Desnível" },
+                { emoji: "🚗", label: "Tráfego difícil" },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-muted rounded-full">
+                  <span className="text-base sm:text-lg">{item.emoji}</span>
+                  <span className="font-medium text-foreground text-xs sm:text-sm">{item.label}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
       {/* Stats */}
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-sm">
-              <p className="text-4xl font-bold text-primary mb-2">24h</p>
-              <p className="text-gray-500">Tempo médio de resposta</p>
+      <section className="py-10 sm:py-16 bg-background">
+        <div className="max-w-4xl mx-auto px-5">
+          <div className="grid grid-cols-3 gap-3 sm:gap-6">
+            <div className="bg-card rounded-xl sm:rounded-2xl p-4 sm:p-8 text-center border border-border shadow-sm">
+              <p className="text-xl sm:text-4xl font-bold text-primary mb-1">24h</p>
+              <p className="text-muted-foreground text-[10px] sm:text-sm">Tempo de resposta</p>
             </div>
-            <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-sm">
-              <p className="text-4xl font-bold text-green-500 mb-2">100%</p>
-              <p className="text-gray-500">Reclamações analisadas</p>
+            <div className="bg-card rounded-xl sm:rounded-2xl p-4 sm:p-8 text-center border border-border shadow-sm">
+              <p className="text-xl sm:text-4xl font-bold text-green-600 mb-1">100%</p>
+              <p className="text-muted-foreground text-[10px] sm:text-sm">Analisadas</p>
             </div>
-            <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-sm">
-              <p className="text-4xl font-bold text-primary mb-2">Grátis</p>
-              <p className="text-gray-500">Serviço para o cidadão</p>
+            <div className="bg-card rounded-xl sm:rounded-2xl p-4 sm:p-8 text-center border border-border shadow-sm">
+              <p className="text-xl sm:text-4xl font-bold text-primary mb-1">Grátis</p>
+              <p className="text-muted-foreground text-[10px] sm:text-sm">Para o cidadão</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="mt-auto bg-[#eef2f6] py-8">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+      <footer className="mt-auto bg-muted py-6 sm:py-8">
+        <div className="max-w-6xl mx-auto px-5">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 text-center sm:text-left">
             <div>
-              <p className="font-semibold text-gray-700">{prefeitura.nome}</p>
-              <p className="text-sm text-gray-500">Trabalhando por uma cidade melhor</p>
+              <p className="font-semibold text-foreground text-sm">{prefeitura.nome}</p>
+              <p className="text-xs text-muted-foreground">Trabalhando por uma cidade melhor</p>
             </div>
-            <div className="text-center md:text-right text-sm text-gray-500">
-              <p>Seus dados são protegidos conforme a LGPD</p>
-              <p>© {new Date().getFullYear()} {prefeitura.nome} - Todos os direitos reservados</p>
+            <div className="text-xs text-muted-foreground">
+              <p>© {new Date().getFullYear()} - Todos os direitos reservados</p>
             </div>
           </div>
         </div>
