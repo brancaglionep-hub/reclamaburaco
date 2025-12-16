@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, ArrowRight, Send, CheckCircle2, Pencil, Building2, Loader2 } from "lucide-react";
 import StepIndicator from "./StepIndicator";
 import LocationPicker from "./LocationPicker";
@@ -91,12 +91,18 @@ interface ComplaintFormProps {
   bairroId?: string | null;
 }
 
+interface Bairro {
+  id: string;
+  nome: string;
+}
+
 const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: ComplaintFormProps) => {
   const [step, setStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [protocolo, setProtocolo] = useState<string>("");
   const [errors, setErrors] = useState<FormErrors>({});
+  const [bairros, setBairros] = useState<Bairro[]>([]);
   const [formData, setFormData] = useState<FormData>({
     nome: "",
     email: "",
@@ -112,6 +118,26 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
     videos: [],
     localizacao: null
   });
+
+  // Fetch bairros for this prefeitura
+  useEffect(() => {
+    const fetchBairros = async () => {
+      const { data, error } = await supabase
+        .from("bairros")
+        .select("id, nome")
+        .eq("prefeitura_id", prefeituraId)
+        .eq("ativo", true)
+        .order("nome");
+
+      if (!error && data) {
+        setBairros(data);
+      }
+    };
+
+    if (prefeituraId) {
+      fetchBairros();
+    }
+  }, [prefeituraId]);
 
   const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -501,6 +527,7 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
                   referencia={formData.referencia}
                   localizacao={formData.localizacao}
                   bairroError={errors.bairro}
+                  bairros={bairros}
                   onBairroChange={(v) => {
                     updateField("bairro", v);
                     if (errors.bairro) setErrors((prev) => ({ ...prev, bairro: undefined }));

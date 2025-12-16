@@ -3,6 +3,11 @@ import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import MapPicker from "./MapPicker";
 
+interface Bairro {
+  id: string;
+  nome: string;
+}
+
 interface LocationPickerProps {
   bairro: string;
   rua: string;
@@ -10,31 +15,13 @@ interface LocationPickerProps {
   referencia: string;
   localizacao: { lat: number; lng: number } | null;
   bairroError?: string;
+  bairros: Bairro[];
   onBairroChange: (value: string) => void;
   onRuaChange: (value: string) => void;
   onNumeroChange: (value: string) => void;
   onReferenciaChange: (value: string) => void;
   onLocationCapture: (coords: { lat: number; lng: number }) => void;
 }
-
-const bairros = [
-  "Centro",
-  "Fundos",
-  "Jardim Janaína",
-  "Vendaval",
-  "Prado",
-  "Serraria",
-  "Jardim Carandaí",
-  "Bom Viver",
-  "Bela Vista",
-  "Rio Caveiras",
-  "Três Riachos",
-  "Guaporanga",
-  "Sorocaba do Sul",
-  "Tijuquinhas",
-  "Praia de São Miguel",
-  "Outro"
-];
 
 interface NominatimAddress {
   road?: string;
@@ -54,6 +41,7 @@ const LocationPicker = ({
   referencia,
   localizacao,
   bairroError,
+  bairros,
   onBairroChange,
   onRuaChange,
   onNumeroChange,
@@ -78,14 +66,14 @@ const LocationPicker = ({
       const normalizedPart = part.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       
       for (const b of bairros) {
-        const normalizedBairro = b.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const normalizedBairro = b.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         if (normalizedPart.includes(normalizedBairro) || normalizedBairro.includes(normalizedPart)) {
-          return b;
+          return b.nome;
         }
       }
     }
     
-    return "Outro";
+    return "";
   };
 
   const reverseGeocode = async (lat: number, lng: number) => {
@@ -245,25 +233,25 @@ const LocationPicker = ({
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-2">Bairro *</label>
-          <select
-            value={bairro === "" ? "" : (bairros.includes(bairro) ? bairro : "Outro")}
-            onChange={(e) => onBairroChange(e.target.value)}
-            className="input-large"
-            required
-          >
-            <option value="" disabled>Selecionar o bairro</option>
-            {bairros.map((b) => (
-              <option key={b} value={b}>{b}</option>
-            ))}
-          </select>
-          
-          {(bairro === "Outro" || (!bairros.includes(bairro) && bairro !== "")) && (
+          {bairros.length > 0 ? (
+            <select
+              value={bairro}
+              onChange={(e) => onBairroChange(e.target.value)}
+              className="input-large"
+              required
+            >
+              <option value="" disabled>Selecionar o bairro</option>
+              {bairros.map((b) => (
+                <option key={b.id} value={b.nome}>{b.nome}</option>
+              ))}
+            </select>
+          ) : (
             <input
               type="text"
-              value={bairro === "Outro" ? "" : (bairros.includes(bairro) ? "" : bairro)}
+              value={bairro}
               placeholder="Digite o nome do bairro"
-              className={`input-large mt-2 ${bairroError ? "border-destructive ring-destructive/20" : ""}`}
-              onChange={(e) => onBairroChange(e.target.value || "Outro")}
+              className={`input-large ${bairroError ? "border-destructive ring-destructive/20" : ""}`}
+              onChange={(e) => onBairroChange(e.target.value)}
               required
             />
           )}
