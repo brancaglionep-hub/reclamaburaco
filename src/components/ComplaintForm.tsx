@@ -270,23 +270,21 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
       const videoUrls = await uploadMedia(formData.videos, 'videos');
 
       const { data, error } = await supabase
-        .from("reclamacoes")
-        .insert({
-          prefeitura_id: prefeituraId,
-          nome_cidadao: formData.nome,
-          email_cidadao: formData.email,
-          telefone_cidadao: formData.telefone || null,
-          bairro_id: bairroId || bairroData?.id || null,
-          categoria_id: categoriaId,
-          rua: formData.rua,
-          numero: formData.numero || null,
-          referencia: formData.referencia || null,
-          descricao: formData.descricao || formData.outroProblema || "Sem descrição adicional",
-          localizacao: formData.localizacao ? { lat: formData.localizacao.lat, lng: formData.localizacao.lng } : null,
-          fotos: fotoUrls,
-          videos: videoUrls
-        } as any)
-        .select("protocolo")
+        .rpc("criar_reclamacao_publica", {
+          _prefeitura_id: prefeituraId,
+          _nome_cidadao: formData.nome,
+          _email_cidadao: formData.email,
+          _rua: formData.rua,
+          _telefone_cidadao: formData.telefone || null,
+          _bairro_id: bairroId || bairroData?.id || null,
+          _categoria_id: categoriaId,
+          _numero: formData.numero || null,
+          _referencia: formData.referencia || null,
+          _descricao: formData.descricao || formData.outroProblema || "Sem descrição adicional",
+          _localizacao: formData.localizacao ? { lat: formData.localizacao.lat, lng: formData.localizacao.lng } : null,
+          _fotos: fotoUrls,
+          _videos: videoUrls
+        })
         .single();
 
       if (error) throw error;
