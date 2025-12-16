@@ -203,7 +203,7 @@ const Auth = () => {
               type="button"
               variant="ghost"
               onClick={() => navigate("/")}
-              className="w-full h-12 text-base bg-muted/50 hover:bg-muted text-muted-foreground"
+              className="w-full h-12 text-base bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground"
             >
               Voltar ao início
             </Button>
