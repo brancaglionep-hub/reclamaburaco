@@ -281,13 +281,26 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
     setIsSubmitting(true);
     
     try {
-      // Buscar bairro_id pelo nome
-      const { data: bairroData } = await supabase
-        .from("bairros")
-        .select("id")
-        .eq("nome", formData.bairro)
-        .eq("prefeitura_id", PREFEITURA_ID)
-        .maybeSingle();
+      // Buscar bairro_id pelo nome (validando que pertence à prefeitura)
+      let bairroIdToUse = bairroId;
+      
+      if (!bairroIdToUse && formData.bairro) {
+        // Tentar encontrar o bairro pelo nome na prefeitura atual
+        const matchedBairro = bairros.find(b => b.nome === formData.bairro);
+        bairroIdToUse = matchedBairro?.id || null;
+        
+        // Se há bairros cadastrados mas o usuário digitou um que não existe, buscar no banco
+        if (!bairroIdToUse && bairros.length === 0) {
+          const { data: bairroData } = await supabase
+            .from("bairros")
+            .select("id")
+            .eq("nome", formData.bairro)
+            .eq("prefeitura_id", prefeituraId)
+            .eq("ativo", true)
+            .maybeSingle();
+          bairroIdToUse = bairroData?.id || null;
+        }
+      }
 
       const categoriaId = categoriasMap[formData.tipoProblema] || categoriasMap.outro;
 
@@ -302,7 +315,7 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
           _email_cidadao: formData.email,
           _rua: formData.rua,
           _telefone_cidadao: formData.telefone || null,
-          _bairro_id: bairroId || bairroData?.id || null,
+          _bairro_id: bairroIdToUse,
           _categoria_id: categoriaId,
           _numero: formData.numero || null,
           _referencia: formData.referencia || null,
