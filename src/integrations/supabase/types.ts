@@ -398,6 +398,26 @@ export type Database = {
           updated_at: string
         }[]
       }
+      criar_reclamacao_publica: {
+        Args: {
+          _bairro_id?: string
+          _categoria_id?: string
+          _descricao?: string
+          _email_cidadao: string
+          _fotos?: string[]
+          _localizacao?: Json
+          _nome_cidadao: string
+          _numero?: string
+          _prefeitura_id: string
+          _referencia?: string
+          _rua: string
+          _telefone_cidadao?: string
+          _videos?: string[]
+        }
+        Returns: {
+          protocolo: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
