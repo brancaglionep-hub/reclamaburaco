@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, MapPin, Building2, ChevronRight, Map, Clock, Shield, Navigation } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import heroBg from "@/assets/hero-city-bg.jpg";
 
 interface Prefeitura {
   id: string;
@@ -102,10 +103,17 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section with CSS Background (no JS image loading) */}
-      <section className="relative min-h-[70vh] lg:min-h-[80vh] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Hero Section with Background Image */}
+      <section className="relative min-h-[70vh] lg:min-h-[80vh] flex items-center justify-center">
+        {/* Background Image */}
+        <img 
+          src={heroBg} 
+          alt="" 
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
+        />
         {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/40 to-black/70" />
         
         {/* Header */}
         <header className="absolute top-0 left-0 right-0 z-20">
