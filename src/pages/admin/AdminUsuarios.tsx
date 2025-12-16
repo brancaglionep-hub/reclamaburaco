@@ -89,7 +89,14 @@ const AdminUsuarios = () => {
         profile: profilesData?.find(p => p.id === role.user_id)
       }));
 
-      setUsers(usersWithProfiles);
+      // Ordenar: super_admin primeiro, depois por data de criação
+      const sortedUsers = usersWithProfiles.sort((a, b) => {
+        if (a.role === "super_admin" && b.role !== "super_admin") return -1;
+        if (a.role !== "super_admin" && b.role === "super_admin") return 1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+
+      setUsers(sortedUsers);
     }
 
     // Fetch prefeituras
