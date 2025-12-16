@@ -175,7 +175,7 @@ const CityPage = () => {
                   <span className="text-muted-foreground text-xs sm:text-sm font-medium">Rápido e fácil</span>
                 </div>
                 <div className="flex flex-col items-center gap-2 text-center">
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-green-50 flex items-center justify-center">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgb(209 237 217 / 49%)' }}>
                     <MapPin className="w-6 h-6 sm:w-7 sm:h-7 text-green-600" />
                   </div>
                   <span className="text-muted-foreground text-xs sm:text-sm font-medium">Com localização</span>
