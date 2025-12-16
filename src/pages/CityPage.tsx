@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { Building2, Phone, AlertTriangle, ArrowRight, Clock, MapPin, Shield } from "lucide-react";
+import { Building2, Phone, ArrowRight, Clock, MapPin, Shield, Home, Construction } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import ComplaintForm from "@/components/ComplaintForm";
 import ConsultaProtocolo from "@/components/ConsultaProtocolo";
@@ -65,10 +67,31 @@ const CityPage = () => {
 
   if (!prefeitura) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-white">
-        <AlertTriangle className="w-16 h-16 text-yellow-500 mb-4" />
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Cidade não encontrada</h1>
-        <p className="text-gray-500">Verifique o endereço e tente novamente.</p>
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-background">
+        {/* Ícone de rua interditada com buraco */}
+        <div className="relative mb-6">
+          <div className="w-24 h-24 bg-muted rounded-2xl flex items-center justify-center relative overflow-hidden">
+            {/* Linha da rua */}
+            <div className="absolute bottom-3 left-2 right-2 h-2 bg-muted-foreground/20 rounded" />
+            {/* Buraco */}
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-6 h-3 bg-muted-foreground/40 rounded-t-full" />
+            {/* Ícone de construção */}
+            <Construction className="w-12 h-12 text-orange-500 relative z-10" />
+          </div>
+          {/* Cones */}
+          <div className="absolute -bottom-1 -left-2 w-4 h-6 bg-orange-500 rounded-t-sm" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }} />
+          <div className="absolute -bottom-1 -right-2 w-4 h-6 bg-orange-500 rounded-t-sm" style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }} />
+        </div>
+        
+        <h1 className="text-2xl font-bold text-foreground mb-2">Cidade não encontrada</h1>
+        <p className="text-muted-foreground mb-6">Verifique o endereço e tente novamente.</p>
+        
+        <Button asChild>
+          <Link to="/" className="inline-flex items-center gap-2">
+            <Home className="w-4 h-4" />
+            Voltar ao início
+          </Link>
+        </Button>
       </div>
     );
   }
