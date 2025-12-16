@@ -201,9 +201,9 @@ const Auth = () => {
 
             <Button
               type="button"
-              variant="secondary"
+              variant="ghost"
               onClick={() => navigate("/")}
-              className="w-full h-12 text-base"
+              className="w-full h-12 text-base bg-muted/50 hover:bg-muted text-muted-foreground"
             >
               Voltar ao início
             </Button>
