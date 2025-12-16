@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Users, Building2, Eye, EyeOff, Loader2, Edit2 } from "lucide-react";
+import { Plus, Trash2, Users, Building2, Eye, EyeOff, Loader2, Edit2, Shield, UserCog } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -60,18 +61,19 @@ const AdminUsuarios = () => {
     email: "",
     password: "",
     nome: "",
-    prefeitura_id: ""
+    prefeitura_id: "",
+    role: "admin_prefeitura" as "super_admin" | "admin_prefeitura"
   });
 
   const fetchData = async () => {
-    // Fetch users with admin_prefeitura role
+    // Fetch all users (super_admin and admin_prefeitura)
     const { data: rolesData, error: rolesError } = await supabase
       .from("user_roles")
       .select(`
         *,
         prefeitura:prefeituras(nome, cidade)
       `)
-      .eq("role", "admin_prefeitura")
+      .in("role", ["super_admin", "admin_prefeitura"])
       .order("created_at", { ascending: false });
 
     if (!rolesError && rolesData) {
@@ -115,7 +117,8 @@ const AdminUsuarios = () => {
         email: user.profile?.email || "",
         password: "",
         nome: user.profile?.nome || "",
-        prefeitura_id: user.prefeitura_id || ""
+        prefeitura_id: user.prefeitura_id || "",
+        role: user.role as "super_admin" | "admin_prefeitura"
       });
     } else {
       setEditingUser(null);
@@ -123,7 +126,8 @@ const AdminUsuarios = () => {
         email: "",
         password: "",
         nome: "",
-        prefeitura_id: ""
+        prefeitura_id: "",
+        role: "admin_prefeitura"
       });
     }
     setShowPassword(false);
@@ -133,8 +137,13 @@ const AdminUsuarios = () => {
   const handleSave = async () => {
     if (!editingUser) {
       // Creating new user
-      if (!formData.email || !formData.password || !formData.prefeitura_id) {
-        toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
+      if (!formData.email || !formData.password) {
+        toast({ title: "E-mail e senha são obrigatórios", variant: "destructive" });
+        return;
+      }
+
+      if (formData.role === "admin_prefeitura" && !formData.prefeitura_id) {
+        toast({ title: "Selecione uma prefeitura para admin de prefeitura", variant: "destructive" });
         return;
       }
 
@@ -151,7 +160,8 @@ const AdminUsuarios = () => {
             email: formData.email,
             password: formData.password,
             nome: formData.nome,
-            prefeitura_id: formData.prefeitura_id
+            prefeitura_id: formData.role === "admin_prefeitura" ? formData.prefeitura_id : null,
+            role: formData.role
           }
         });
 
@@ -178,8 +188,13 @@ const AdminUsuarios = () => {
       }
     } else {
       // Updating existing user
-      if (!formData.email || !formData.prefeitura_id) {
-        toast({ title: "E-mail e prefeitura são obrigatórios", variant: "destructive" });
+      if (!formData.email) {
+        toast({ title: "E-mail é obrigatório", variant: "destructive" });
+        return;
+      }
+
+      if (formData.role === "admin_prefeitura" && !formData.prefeitura_id) {
+        toast({ title: "Selecione uma prefeitura para admin de prefeitura", variant: "destructive" });
         return;
       }
 
@@ -195,7 +210,9 @@ const AdminUsuarios = () => {
           user_id: editingUser.user_id,
           email: formData.email,
           nome: formData.nome,
-          prefeitura_id: formData.prefeitura_id
+          prefeitura_id: formData.role === "admin_prefeitura" ? formData.prefeitura_id : null,
+          role: formData.role,
+          old_role: editingUser.role
         };
 
         if (formData.password) {
@@ -271,7 +288,7 @@ const AdminUsuarios = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Usuários</h1>
-          <p className="text-muted-foreground mt-1">Gerencie os administradores das prefeituras</p>
+          <p className="text-muted-foreground mt-1">Gerencie os administradores do sistema</p>
         </div>
         <Button onClick={() => handleOpenDialog()}>
           <Plus className="w-4 h-4 mr-2" />
@@ -285,6 +302,7 @@ const AdminUsuarios = () => {
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead>E-mail</TableHead>
+              <TableHead>Tipo</TableHead>
               <TableHead>Prefeitura</TableHead>
               <TableHead>Criado em</TableHead>
               <TableHead className="text-right">Ações</TableHead>
@@ -293,7 +311,7 @@ const AdminUsuarios = () => {
           <TableBody>
             {users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   Nenhum usuário cadastrado
                 </TableCell>
@@ -306,10 +324,27 @@ const AdminUsuarios = () => {
                   </TableCell>
                   <TableCell>{user.profile?.email || "-"}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-muted-foreground" />
-                      {user.prefeitura?.cidade || "-"}
-                    </div>
+                    {user.role === "super_admin" ? (
+                      <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">
+                        <Shield className="w-3 h-3 mr-1" />
+                        Super Admin
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">
+                        <UserCog className="w-3 h-3 mr-1" />
+                        Admin Prefeitura
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {user.role === "super_admin" ? (
+                      <span className="text-muted-foreground">-</span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-muted-foreground" />
+                        {user.prefeitura?.cidade || "-"}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {new Date(user.created_at).toLocaleDateString("pt-BR")}
@@ -350,23 +385,54 @@ const AdminUsuarios = () => {
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Prefeitura *</label>
+              <label className="text-sm font-medium mb-2 block">Tipo de Usuário *</label>
               <Select
-                value={formData.prefeitura_id}
-                onValueChange={(value) => setFormData({ ...formData, prefeitura_id: value })}
+                value={formData.role}
+                onValueChange={(value: "super_admin" | "admin_prefeitura") => 
+                  setFormData({ ...formData, role: value, prefeitura_id: value === "super_admin" ? "" : formData.prefeitura_id })
+                }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione a prefeitura" />
+                  <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  {prefeituras.map((pref) => (
-                    <SelectItem key={pref.id} value={pref.id}>
-                      {pref.cidade} - {pref.nome}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="super_admin">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-amber-500" />
+                      Super Admin
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="admin_prefeitura">
+                    <div className="flex items-center gap-2">
+                      <UserCog className="w-4 h-4" />
+                      Admin de Prefeitura
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {formData.role === "admin_prefeitura" && (
+              <div>
+                <label className="text-sm font-medium mb-2 block">Prefeitura *</label>
+                <Select
+                  value={formData.prefeitura_id}
+                  onValueChange={(value) => setFormData({ ...formData, prefeitura_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a prefeitura" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {prefeituras.map((pref) => (
+                      <SelectItem key={pref.id} value={pref.id}>
+                        {pref.cidade} - {pref.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div>
               <label className="text-sm font-medium mb-2 block">Nome do usuário</label>
               <Input
@@ -379,7 +445,7 @@ const AdminUsuarios = () => {
               <label className="text-sm font-medium mb-2 block">E-mail *</label>
               <Input
                 type="email"
-                placeholder="usuario@prefeitura.gov.br"
+                placeholder="usuario@exemplo.com"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />

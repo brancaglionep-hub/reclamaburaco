@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { user_id, email, password, nome, prefeitura_id } = await req.json()
+    const { user_id, email, password, nome, prefeitura_id, role, old_role } = await req.json()
 
     if (!user_id) {
       return new Response(
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    console.log('Updating user:', user_id)
+    console.log('Updating user:', user_id, 'role:', role, 'old_role:', old_role)
 
     // Update auth user if email or password provided
     const authUpdates: any = {}
@@ -102,8 +102,45 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update prefeitura_id if provided
-    if (prefeitura_id) {
+    // Handle role change
+    if (role && old_role && role !== old_role) {
+      console.log('Role changed from', old_role, 'to', role)
+      
+      // Delete old role
+      const { error: deleteRoleError } = await supabaseAdmin
+        .from('user_roles')
+        .delete()
+        .eq('user_id', user_id)
+        .eq('role', old_role)
+
+      if (deleteRoleError) {
+        console.error('Error deleting old role:', deleteRoleError)
+      }
+
+      // Insert new role
+      const newRoleData: any = {
+        user_id,
+        role
+      }
+      
+      if (role === 'admin_prefeitura' && prefeitura_id) {
+        newRoleData.prefeitura_id = prefeitura_id
+      }
+
+      const { error: insertRoleError } = await supabaseAdmin
+        .from('user_roles')
+        .insert(newRoleData)
+
+      if (insertRoleError) {
+        console.error('Error inserting new role:', insertRoleError)
+        return new Response(
+          JSON.stringify({ error: 'Erro ao atualizar tipo de usuário: ' + insertRoleError.message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      console.log('Role updated successfully')
+    } else if (role === 'admin_prefeitura' && prefeitura_id) {
+      // Just update prefeitura_id if role didn't change
       const { error: roleError } = await supabaseAdmin
         .from('user_roles')
         .update({ prefeitura_id })
@@ -111,7 +148,7 @@ Deno.serve(async (req) => {
         .eq('role', 'admin_prefeitura')
 
       if (roleError) {
-        console.error('Error updating role:', roleError)
+        console.error('Error updating role prefeitura:', roleError)
       } else {
         console.log('Role prefeitura updated')
       }

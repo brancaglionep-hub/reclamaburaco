@@ -59,16 +59,32 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { email, password, nome, prefeitura_id } = await req.json()
+    const { email, password, nome, prefeitura_id, role = 'admin_prefeitura' } = await req.json()
 
-    if (!email || !password || !prefeitura_id) {
+    if (!email || !password) {
       return new Response(
-        JSON.stringify({ error: 'Email, senha e prefeitura são obrigatórios' }),
+        JSON.stringify({ error: 'Email e senha são obrigatórios' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log('Creating user:', email, 'for prefeitura:', prefeitura_id)
+    // Validate role
+    if (!['super_admin', 'admin_prefeitura'].includes(role)) {
+      return new Response(
+        JSON.stringify({ error: 'Tipo de usuário inválido' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // If admin_prefeitura, require prefeitura_id
+    if (role === 'admin_prefeitura' && !prefeitura_id) {
+      return new Response(
+        JSON.stringify({ error: 'Prefeitura é obrigatória para admin de prefeitura' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log('Creating user:', email, 'with role:', role, 'prefeitura:', prefeitura_id)
 
     // Create the user
     const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -88,14 +104,20 @@ Deno.serve(async (req) => {
 
     console.log('User created:', userData.user.id)
 
-    // Assign the admin_prefeitura role
+    // Assign the role
+    const roleInsert: any = {
+      user_id: userData.user.id,
+      role: role
+    }
+
+    // Only add prefeitura_id for admin_prefeitura
+    if (role === 'admin_prefeitura') {
+      roleInsert.prefeitura_id = prefeitura_id
+    }
+
     const { error: roleError } = await supabaseAdmin
       .from('user_roles')
-      .insert({
-        user_id: userData.user.id,
-        role: 'admin_prefeitura',
-        prefeitura_id
-      })
+      .insert(roleInsert)
 
     if (roleError) {
       console.error('Error assigning role:', roleError)
@@ -107,7 +129,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    console.log('Role assigned successfully')
+    console.log('Role assigned successfully:', role)
 
     return new Response(
       JSON.stringify({ 
