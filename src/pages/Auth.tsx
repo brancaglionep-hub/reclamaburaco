@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { Building2, Mail, Lock, Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Building2, Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -139,15 +139,6 @@ const Auth = () => {
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-card rounded-2xl shadow-xl border border-border p-8">
-          {/* Voltar */}
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Voltar ao início
-          </Link>
-
           {/* Logo */}
           <div className="text-center mb-8">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
@@ -206,6 +197,15 @@ const Auth = () => {
               ) : (
                 "Entrar"
               )}
+            </Button>
+
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => navigate("/")}
+              className="w-full h-12 text-base"
+            >
+              Voltar ao início
             </Button>
           </form>
         </div>
