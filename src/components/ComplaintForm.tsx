@@ -293,8 +293,9 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
       setIsSubmitted(true);
       
       toast({
-        title: "Reclamação enviada!",
+        title: "✅ Reclamação enviada!",
         description: `Protocolo: ${data.protocolo}`,
+        className: "bg-green-600 text-white border-green-700",
       });
     } catch (error) {
       console.error("Erro ao enviar reclamação:", error);
