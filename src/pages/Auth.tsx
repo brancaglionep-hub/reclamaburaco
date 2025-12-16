@@ -13,7 +13,6 @@ const authSchema = z.object({
     .string()
     .min(6, "A senha deve ter pelo menos 6 caracteres")
     .max(72, "A senha deve ter no máximo 72 caracteres"),
-  nome: z.string().trim().min(2, "Digite seu nome").max(100, "Nome muito longo").optional(),
 });
 
 type UserRoleRow = {
@@ -23,13 +22,11 @@ type UserRoleRow = {
 
 const Auth = () => {
   const navigate = useNavigate();
-  const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    nome: "",
   });
 
   const checkUserRole = async (userId: string) => {
@@ -74,7 +71,6 @@ const Auth = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      // Nunca chame outras funções do backend diretamente aqui: use setTimeout
       if (session?.user) {
         setTimeout(() => checkUserRole(session.user.id), 0);
       }
@@ -95,7 +91,6 @@ const Auth = () => {
     const parsed = authSchema.safeParse({
       email: formData.email,
       password: formData.password,
-      nome: isLogin ? undefined : formData.nome,
     });
 
     if (!parsed.success) {
@@ -110,40 +105,21 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: parsed.data.email,
-          password: parsed.data.password,
-        });
+      const { error } = await supabase.auth.signInWithPassword({
+        email: parsed.data.email,
+        password: parsed.data.password,
+      });
 
-        if (error) throw error;
+      if (error) throw error;
 
-        toast({ title: "Login realizado com sucesso!" });
+      toast({ title: "Login realizado com sucesso!" });
 
-        // Redireciona imediatamente após login
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-        if (session?.user) {
-          await checkUserRole(session.user.id);
-        }
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email: parsed.data.email,
-          password: parsed.data.password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth`,
-            data: { nome: parsed.data.nome },
-          },
-        });
-
-        if (error) throw error;
-
-        toast({
-          title: "Cadastro realizado!",
-          description: "Aguarde a aprovação de um administrador.",
-        });
+      if (session?.user) {
+        await checkUserRole(session.user.id);
       }
     } catch (error: any) {
       toast({
@@ -169,27 +145,11 @@ const Auth = () => {
               <Building2 className="w-8 h-8 text-primary" />
             </div>
             <h1 className="text-2xl font-bold text-foreground">Painel Administrativo</h1>
-            <p className="text-muted-foreground mt-1">
-              {isLogin ? "Acesse sua conta" : "Criar nova conta"}
-            </p>
+            <p className="text-muted-foreground mt-1">Acesse sua conta</p>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Nome completo</label>
-                <Input
-                  type="text"
-                  placeholder="Seu nome"
-                  value={formData.nome}
-                  onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                  required={!isLogin}
-                  className="h-12"
-                />
-              </div>
-            )}
-
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">E-mail</label>
               <div className="relative">
@@ -232,23 +192,13 @@ const Auth = () => {
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                  {isLogin ? "Entrando..." : "Cadastrando..."}
+                  Entrando...
                 </>
               ) : (
-                isLogin ? "Entrar" : "Cadastrar"
+                "Entrar"
               )}
             </Button>
           </form>
-
-          {/* Toggle */}
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-primary hover:underline"
-            >
-              {isLogin ? "Não tem conta? Cadastre-se" : "Já tem conta? Faça login"}
-            </button>
-          </div>
         </div>
       </div>
     </div>

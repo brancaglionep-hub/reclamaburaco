@@ -245,9 +245,15 @@ const Home = () => {
           <p className="text-muted-foreground text-sm mb-2">
             © {new Date().getFullYear()} Todos os direitos reservados
           </p>
-          <p className="text-muted-foreground/70 text-xs">
+          <p className="text-muted-foreground/70 text-xs mb-4">
             Seus dados são protegidos conforme a Lei Geral de Proteção de Dados (LGPD)
           </p>
+          <button
+            onClick={() => navigate("/auth")}
+            className="text-xs text-muted-foreground/50 hover:text-primary transition-colors"
+          >
+            Acessar Painel
+          </button>
         </div>
       </footer>
     </div>
