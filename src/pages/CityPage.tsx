@@ -143,7 +143,7 @@ const CityPage = () => {
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             <div className="space-y-6">
               <span className="inline-block px-4 py-1.5 bg-primary/10 text-primary rounded-full text-sm font-medium">
-                Serviço Municipal
+                Serviço Municipal de {prefeitura.cidade}
               </span>
               
               <div className="space-y-3">
