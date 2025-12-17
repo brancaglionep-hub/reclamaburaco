@@ -122,8 +122,8 @@ const Home = () => {
               <Building2 className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-white text-lg">Reclamações de Ruas</h1>
-              <p className="text-xs text-white/70">Sistema Municipal de Atendimento</p>
+              <h1 className="font-bold text-white text-lg">Civita Infra</h1>
+              <p className="text-xs text-white/70">Sistema de Gestão de Infraestrutura</p>
             </div>
           </div>
         </header>
@@ -240,7 +240,7 @@ const Home = () => {
         <div className="max-w-6xl mx-auto px-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Building2 className="w-5 h-5 text-primary" />
-            <span className="font-semibold text-foreground">Sistema de Reclamações de Ruas</span>
+            <span className="font-semibold text-foreground">Civita Infra</span>
           </div>
           <p className="text-muted-foreground text-sm mb-2">
             © {new Date().getFullYear()} Todos os direitos reservados

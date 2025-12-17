@@ -382,8 +382,8 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
         <div className="flex items-center gap-3 mb-10">
           <Building2 className="w-8 h-8" />
           <div>
-            <p className="font-bold text-lg">Prefeitura de Biguaçu</p>
-            <p className="text-sm opacity-80">Reclamações de Ruas</p>
+            <p className="font-bold text-lg">Civita Infra</p>
+            <p className="text-sm opacity-80">Sistema de Gestão de Infraestrutura</p>
           </div>
         </div>
 

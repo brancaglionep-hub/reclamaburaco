@@ -135,12 +135,12 @@ const CityPage = () => {
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             <div className="space-y-6">
               <span className="inline-block px-4 py-1.5 bg-primary/10 text-primary rounded-full text-sm font-medium">
-                Serviço Municipal
+                Civita Infra
               </span>
               
               <div className="space-y-3">
                 <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-foreground leading-tight">
-                  Reclamações de Ruas
+                  Registrar Ocorrência
                 </h1>
                 <p className="text-lg sm:text-xl text-muted-foreground">
                   Encontrou um problema na sua rua?
