@@ -33,10 +33,10 @@ const Index = () => {
           <div className="text-center lg:text-left mb-8 lg:mb-0">
             <div className="animate-fade-in">
               <span className="inline-block px-4 py-1.5 bg-primary/10 text-primary text-sm font-medium rounded-full mb-4 lg:mb-6">
-                Serviço Municipal
+                Civita Infra
               </span>
               <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-foreground mb-3 lg:mb-4 leading-tight">
-                Reclamações de Ruas
+                Registrar Ocorrência
               </h1>
               <p className="text-lg lg:text-xl text-muted-foreground mb-2 lg:mb-4">
                 Encontrou um problema na sua rua?
