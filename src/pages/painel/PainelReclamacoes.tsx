@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
-import { Search, Eye, Clock, CheckCircle2, AlertCircle, Filter, Printer } from "lucide-react";
+import { Search, Eye, Clock, CheckCircle2, AlertCircle, Filter, Printer, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,12 @@ interface Reclamacao {
   status: string;
   rua: string;
   created_at: string;
+  updated_at: string;
+  resposta_prefeitura: string | null;
+  nome_cidadao: string;
+  email_cidadao: string;
+  telefone_cidadao: string | null;
+  descricao: string;
   bairros: { nome: string } | null;
   categorias: { nome: string } | null;
 }
@@ -43,6 +49,19 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
   arquivada: { label: "Arquivada", color: "bg-gray-100 text-gray-700", icon: AlertCircle }
 };
 
+const calcularTempoEspera = (created_at: string, updated_at: string, status: string): number => {
+  const inicio = new Date(created_at);
+  const fim = status === 'recebida' ? new Date() : new Date(updated_at);
+  const diffMs = fim.getTime() - inicio.getTime();
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+};
+
+const formatarTempoEspera = (dias: number): string => {
+  if (dias === 0) return "Hoje";
+  if (dias === 1) return "1 dia";
+  return `${dias} dias`;
+};
+
 const PainelReclamacoes = () => {
   const { prefeituraId } = useOutletContext<OutletContext>();
   const navigate = useNavigate();
@@ -50,6 +69,7 @@ const PainelReclamacoes = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [tempoFilter, setTempoFilter] = useState<string>("all");
 
   useEffect(() => {
     const fetchReclamacoes = async () => {
@@ -61,6 +81,12 @@ const PainelReclamacoes = () => {
           status,
           rua,
           created_at,
+          updated_at,
+          resposta_prefeitura,
+          nome_cidadao,
+          email_cidadao,
+          telefone_cidadao,
+          descricao,
           bairros (nome),
           categorias (nome)
         `)
@@ -84,11 +110,80 @@ const PainelReclamacoes = () => {
     }
   }, [prefeituraId, statusFilter]);
 
-  const filteredReclamacoes = reclamacoes.filter(r => 
-    r.protocolo.toLowerCase().includes(search.toLowerCase()) ||
-    r.rua.toLowerCase().includes(search.toLowerCase()) ||
-    r.bairros?.nome.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredReclamacoes = reclamacoes.filter(r => {
+    const matchesSearch = r.protocolo.toLowerCase().includes(search.toLowerCase()) ||
+      r.rua.toLowerCase().includes(search.toLowerCase()) ||
+      r.bairros?.nome.toLowerCase().includes(search.toLowerCase());
+    
+    if (!matchesSearch) return false;
+
+    if (tempoFilter === "all") return true;
+
+    const dias = calcularTempoEspera(r.created_at, r.updated_at, r.status);
+    
+    switch (tempoFilter) {
+      case "hoje": return dias === 0;
+      case "1-3": return dias >= 1 && dias <= 3;
+      case "4-7": return dias >= 4 && dias <= 7;
+      case "8-15": return dias >= 8 && dias <= 15;
+      case "16-30": return dias >= 16 && dias <= 30;
+      case "30+": return dias > 30;
+      default: return true;
+    }
+  });
+
+  const exportToExcel = () => {
+    const headers = [
+      "Protocolo",
+      "Nome Cidadão",
+      "E-mail",
+      "Telefone",
+      "Bairro",
+      "Rua",
+      "Tipo Problema",
+      "Descrição",
+      "Status",
+      "Data Registro",
+      "Última Atualização",
+      "Tempo de Espera (dias)",
+      "Resposta Prefeitura"
+    ];
+
+    const rows = filteredReclamacoes.map(r => {
+      const dias = calcularTempoEspera(r.created_at, r.updated_at, r.status);
+      return [
+        r.protocolo,
+        r.nome_cidadao,
+        r.email_cidadao,
+        r.telefone_cidadao || "",
+        r.bairros?.nome || "",
+        r.rua,
+        r.categorias?.nome || "",
+        r.descricao?.replace(/[\n\r]/g, " ") || "",
+        statusConfig[r.status]?.label || r.status,
+        new Date(r.created_at).toLocaleDateString("pt-BR"),
+        new Date(r.updated_at).toLocaleDateString("pt-BR"),
+        dias.toString(),
+        r.resposta_prefeitura?.replace(/[\n\r]/g, " ") || ""
+      ];
+    });
+
+    const csvContent = [
+      headers.join(";"),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(";"))
+    ].join("\n");
+
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `reclamacoes_${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    
+    toast({ title: "Arquivo exportado com sucesso!" });
+  };
 
   const handlePrint = async (reclamacaoId: string) => {
     // Buscar dados completos da reclamação
@@ -239,30 +334,51 @@ const PainelReclamacoes = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por protocolo, rua ou bairro..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
-          />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por protocolo, rua ou bairro..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-48">
+              <Filter className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Filtrar por status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="recebida">Recebidas</SelectItem>
+              <SelectItem value="em_analise">Em Análise</SelectItem>
+              <SelectItem value="em_andamento">Em Andamento</SelectItem>
+              <SelectItem value="resolvida">Resolvidas</SelectItem>
+              <SelectItem value="arquivada">Arquivadas</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={tempoFilter} onValueChange={setTempoFilter}>
+            <SelectTrigger className="w-full sm:w-48">
+              <Clock className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Tempo de espera" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Qualquer tempo</SelectItem>
+              <SelectItem value="hoje">Hoje</SelectItem>
+              <SelectItem value="1-3">1-3 dias</SelectItem>
+              <SelectItem value="4-7">4-7 dias</SelectItem>
+              <SelectItem value="8-15">8-15 dias</SelectItem>
+              <SelectItem value="16-30">16-30 dias</SelectItem>
+              <SelectItem value="30+">Mais de 30 dias</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={exportToExcel} variant="outline" className="gap-2">
+            <Download className="w-4 h-4" />
+            Exportar Excel
+          </Button>
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-48">
-            <Filter className="w-4 h-4 mr-2" />
-            <SelectValue placeholder="Filtrar por status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            <SelectItem value="recebida">Recebidas</SelectItem>
-            <SelectItem value="em_analise">Em Análise</SelectItem>
-            <SelectItem value="em_andamento">Em Andamento</SelectItem>
-            <SelectItem value="resolvida">Resolvidas</SelectItem>
-            <SelectItem value="arquivada">Arquivadas</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Table */}
@@ -276,19 +392,22 @@ const PainelReclamacoes = () => {
               <TableHead>Tipo</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Data</TableHead>
+              <TableHead>Tempo</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredReclamacoes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   Nenhuma reclamação encontrada
                 </TableCell>
               </TableRow>
             ) : (
               filteredReclamacoes.map((reclamacao) => {
                 const status = statusConfig[reclamacao.status] || statusConfig.recebida;
+                const dias = calcularTempoEspera(reclamacao.created_at, reclamacao.updated_at, reclamacao.status);
+                const tempoColor = dias > 30 ? "text-red-600" : dias > 15 ? "text-orange-600" : dias > 7 ? "text-yellow-600" : "text-muted-foreground";
                 return (
                   <TableRow key={reclamacao.id}>
                     <TableCell className="font-mono text-sm">{reclamacao.protocolo}</TableCell>
@@ -302,6 +421,9 @@ const PainelReclamacoes = () => {
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(reclamacao.created_at).toLocaleDateString("pt-BR")}
+                    </TableCell>
+                    <TableCell className={`font-medium ${tempoColor}`}>
+                      {formatarTempoEspera(dias)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
