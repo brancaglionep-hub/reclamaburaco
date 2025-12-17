@@ -331,6 +331,27 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
       setProtocolo(data.protocolo);
       setIsSubmitted(true);
       
+      // Enviar email de confirmação
+      try {
+        const bairroNome = bairros.find(b => b.id === bairroIdToUse)?.nome || formData.bairro || '';
+        const categoriaNome = problemLabels[formData.tipoProblema] || 'Outro problema';
+        
+        await supabase.functions.invoke('send-complaint-confirmation', {
+          body: {
+            to_email: formData.email,
+            nome_cidadao: formData.nome,
+            protocolo: data.protocolo,
+            rua: formData.rua,
+            bairro: bairroNome,
+            categoria: categoriaNome,
+            prefeitura_nome: 'Prefeitura Municipal'
+          }
+        });
+      } catch (emailError) {
+        console.error("Erro ao enviar email de confirmação:", emailError);
+        // Não interrompe o fluxo se o email falhar
+      }
+      
       toast({
         title: "✅ Reclamação enviada!",
         description: `Protocolo: ${data.protocolo}`,
