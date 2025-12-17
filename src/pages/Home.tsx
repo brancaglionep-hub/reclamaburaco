@@ -119,7 +119,7 @@ const Home = () => {
         <header className="absolute top-0 left-0 right-0 z-20">
           <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
             <img 
-              src="/favicon.png" 
+              src="/logo.png" 
               alt="Civita Infra" 
               className="w-12 h-12 rounded-xl object-contain"
             />
@@ -241,7 +241,7 @@ const Home = () => {
       <footer className="bg-muted/50 border-t border-border py-10">
         <div className="max-w-6xl mx-auto px-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <img src="/favicon.png" alt="Civita Infra" className="w-6 h-6 object-contain" />
+            <img src="/logo.png" alt="Civita Infra" className="w-6 h-6 object-contain" />
             <span className="font-semibold text-foreground">Civita Infra</span>
           </div>
           <p className="text-muted-foreground text-sm mb-2">
