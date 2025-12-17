@@ -183,7 +183,7 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailResponse = await resend.emails.send({
-      from: "Civita Infra <onboarding@resend.dev>",
+      from: "Civita Infra <naoresponda@civitainfra.com.br>",
       to: [data.email],
       subject: `[${data.protocolo}] Status atualizado: ${statusLabel}`,
       html: emailHtml,
