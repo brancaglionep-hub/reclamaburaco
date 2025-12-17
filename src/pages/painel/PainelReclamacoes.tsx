@@ -140,34 +140,6 @@ const PainelReclamacoes = () => {
           <div class="status">${status.label}</div>
         </div>
 
-        <h2>Localização</h2>
-        <div class="info-grid">
-          <div class="info-item">
-            <div class="info-label">Rua</div>
-            <div class="info-value">${rec.rua}${rec.numero ? `, ${rec.numero}` : ''}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Bairro</div>
-            <div class="info-value">${rec.bairros?.nome || '-'}</div>
-          </div>
-          ${rec.referencia ? `
-          <div class="info-item">
-            <div class="info-label">Ponto de Referência</div>
-            <div class="info-value">${rec.referencia}</div>
-          </div>
-          ` : ''}
-        </div>
-
-        <h2>Problema Relatado</h2>
-        <div class="info-item">
-          <div class="info-label">Tipo</div>
-          <div class="info-value">${rec.categorias?.nome || '-'}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">Descrição</div>
-          <div class="descricao">${rec.descricao || 'Sem descrição'}</div>
-        </div>
-
         <h2>Dados do Cidadão</h2>
         <div class="info-grid">
           <div class="info-item">
@@ -203,10 +175,38 @@ const PainelReclamacoes = () => {
         <div class="descricao">${rec.resposta_prefeitura}</div>
         ` : ''}
 
+        <h2>Problema Relatado</h2>
+        <div class="info-item">
+          <div class="info-label">Tipo</div>
+          <div class="info-value">${rec.categorias?.nome || '-'}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Descrição</div>
+          <div class="descricao">${rec.descricao || 'Sem descrição'}</div>
+        </div>
+
         ${rec.fotos?.length > 0 ? `
         <h2>Fotos Anexadas</h2>
         <p>${rec.fotos.length} foto(s) anexada(s) - visualizar no sistema</p>
         ` : ''}
+
+        <h2>Localização</h2>
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Rua</div>
+            <div class="info-value">${rec.rua}${rec.numero ? `, ${rec.numero}` : ''}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Bairro</div>
+            <div class="info-value">${rec.bairros?.nome || '-'}</div>
+          </div>
+          ${rec.referencia ? `
+          <div class="info-item">
+            <div class="info-label">Ponto de Referência</div>
+            <div class="info-value">${rec.referencia}</div>
+          </div>
+          ` : ''}
+        </div>
 
         <div class="footer">
           Documento gerado em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}
