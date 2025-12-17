@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate, Link, useLocation, useParams } from "react-router-dom";
-import { Building2, LayoutDashboard, FileText, MapPin, Tag, Settings, LogOut, Menu, X } from "lucide-react";
+import { Building2, LayoutDashboard, FileText, MapPin, Tag, Settings, LogOut, Menu, X, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -75,6 +75,7 @@ const PainelLayout = () => {
   const navItems = [
     { path: basePath, label: "Dashboard", icon: LayoutDashboard },
     { path: `${basePath}/reclamacoes`, label: "Reclamações", icon: FileText },
+    { path: `${basePath}/avaliacoes`, label: "Avaliações", icon: Star },
     { path: `${basePath}/bairros`, label: "Bairros", icon: MapPin },
     { path: `${basePath}/categorias`, label: "Categorias", icon: Tag },
     { path: `${basePath}/configuracoes`, label: "Configurações", icon: Settings },

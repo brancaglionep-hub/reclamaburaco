@@ -126,6 +126,24 @@ const PainelReclamacaoDetalhe = () => {
           observacao: resposta ? "Resposta atualizada" : null
         } as any);
 
+        // If status is "resolvida", create avaliacao record
+        let avaliacaoToken = null;
+        if (newStatus === "resolvida") {
+          const { data: avaliacaoData } = await supabase
+            .from("avaliacoes")
+            .insert({
+              reclamacao_id: reclamacao.id,
+              prefeitura_id: prefeituraId,
+              estrelas: 5 // Default, will be updated by citizen
+            } as any)
+            .select("token")
+            .single();
+          
+          if (avaliacaoData) {
+            avaliacaoToken = avaliacaoData.token;
+          }
+        }
+
         // Fetch prefeitura name for email
         const { data: prefeituraData } = await supabase
           .from("prefeituras")
@@ -146,7 +164,8 @@ const PainelReclamacaoDetalhe = () => {
               rua: reclamacao.rua,
               bairro: reclamacao.bairros?.nome || null,
               categoria: reclamacao.categorias?.nome || null,
-              prefeitura_nome: prefeituraData?.nome || "Prefeitura"
+              prefeitura_nome: prefeituraData?.nome || "Prefeitura",
+              avaliacao_token: avaliacaoToken
             }
           });
           console.log("Email notification sent successfully");

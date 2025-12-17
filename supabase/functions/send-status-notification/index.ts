@@ -19,6 +19,7 @@ interface StatusNotificationRequest {
   bairro: string | null;
   categoria: string | null;
   prefeitura_nome: string;
+  avaliacao_token: string | null;
 }
 
 const statusLabels: Record<string, string> = {
@@ -51,6 +52,12 @@ const handler = async (req: Request): Promise<Response> => {
     const statusLabel = statusLabels[data.status_novo] || data.status_novo;
     const statusColor = statusColors[data.status_novo] || "#6b7280";
     const statusAnteriorLabel = statusLabels[data.status_anterior] || data.status_anterior;
+    
+    // Generate rating link if this is a resolved status
+    const baseUrl = "https://civitainfra.com.br"; // Production URL
+    const ratingLink = data.avaliacao_token 
+      ? `${baseUrl}/avaliar?token=${data.avaliacao_token}`
+      : null;
 
     const emailHtml = `
 <!DOCTYPE html>
@@ -152,6 +159,25 @@ const handler = async (req: Request): Promise<Response> => {
                     <p style="color: #15803d; font-size: 14px; margin: 0; line-height: 1.6;">
                       ${data.resposta}
                     </p>
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
+              
+              ${ratingLink ? `
+              <!-- Rating CTA -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fef3c7; border-radius: 8px; margin-bottom: 25px;">
+                <tr>
+                  <td style="padding: 25px; text-align: center;">
+                    <p style="color: #92400e; font-size: 16px; margin: 0 0 15px 0; font-weight: 600;">
+                      ⭐ Avalie nosso atendimento!
+                    </p>
+                    <p style="color: #a16207; font-size: 14px; margin: 0 0 20px 0; line-height: 1.5;">
+                      Sua opinião é muito importante para melhorarmos nossos serviços.
+                    </p>
+                    <a href="${ratingLink}" style="display: inline-block; background-color: #f59e0b; color: #ffffff; text-decoration: none; padding: 12px 30px; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                      Avaliar Atendimento
+                    </a>
                   </td>
                 </tr>
               </table>
