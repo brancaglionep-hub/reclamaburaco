@@ -189,9 +189,22 @@ const handler = async (req: Request): Promise<Response> => {
       html: emailHtml,
     });
 
-    console.log("Email sent successfully:", emailResponse);
+    // Check if Resend returned an error
+    if (emailResponse.error) {
+      console.error("Resend API error:", JSON.stringify(emailResponse.error, null, 2));
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: emailResponse.error.message,
+          hint: "Para enviar emails para outros destinatários, valide um domínio em resend.com/domains"
+        }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
-    return new Response(JSON.stringify({ success: true, emailResponse }), {
+    console.log("Email sent successfully to:", data.email);
+
+    return new Response(JSON.stringify({ success: true, data: emailResponse.data }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
