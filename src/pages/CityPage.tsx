@@ -110,6 +110,14 @@ const CityPage = () => {
       <header className="bg-primary text-primary-foreground shadow-md">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            <Link 
+              to="/" 
+              className="p-2 rounded-lg hover:bg-primary-foreground/10 transition-colors"
+              title="Voltar ao início"
+            >
+              <Home className="w-5 h-5" />
+            </Link>
+            <div className="w-px h-6 bg-primary-foreground/20" />
             {prefeitura.logo_url ? (
               <img src={prefeitura.logo_url} alt={prefeitura.nome} className="w-9 h-9 object-contain" />
             ) : (
