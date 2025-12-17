@@ -118,9 +118,11 @@ const Home = () => {
         {/* Header */}
         <header className="absolute top-0 left-0 right-0 z-20">
           <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
-              <Building2 className="w-7 h-7 text-white" />
-            </div>
+            <img 
+              src="/favicon.png" 
+              alt="Civita Infra" 
+              className="w-12 h-12 rounded-xl object-contain"
+            />
             <div>
               <h1 className="font-bold text-white text-lg">Civita Infra</h1>
               <p className="text-xs text-white/70">Sistema de Gestão de Infraestrutura</p>
@@ -239,7 +241,7 @@ const Home = () => {
       <footer className="bg-muted/50 border-t border-border py-10">
         <div className="max-w-6xl mx-auto px-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <Building2 className="w-5 h-5 text-primary" />
+            <img src="/favicon.png" alt="Civita Infra" className="w-6 h-6 object-contain" />
             <span className="font-semibold text-foreground">Civita Infra</span>
           </div>
           <p className="text-muted-foreground text-sm mb-2">
