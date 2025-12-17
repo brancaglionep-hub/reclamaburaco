@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      avaliacoes: {
+        Row: {
+          avaliado_em: string | null
+          comentario: string | null
+          created_at: string
+          estrelas: number
+          id: string
+          prefeitura_id: string
+          reclamacao_id: string
+          token: string
+        }
+        Insert: {
+          avaliado_em?: string | null
+          comentario?: string | null
+          created_at?: string
+          estrelas: number
+          id?: string
+          prefeitura_id: string
+          reclamacao_id: string
+          token?: string
+        }
+        Update: {
+          avaliado_em?: string | null
+          comentario?: string | null
+          created_at?: string
+          estrelas?: number
+          id?: string
+          prefeitura_id?: string
+          reclamacao_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avaliacoes_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avaliacoes_reclamacao_id_fkey"
+            columns: ["reclamacao_id"]
+            isOneToOne: false
+            referencedRelation: "reclamacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bairros: {
         Row: {
           ativo: boolean | null
@@ -374,6 +422,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      buscar_avaliacao_por_token: {
+        Args: { _token: string }
+        Returns: {
+          bairro_nome: string
+          categoria_nome: string
+          ja_avaliada: boolean
+          prefeitura_nome: string
+          protocolo: string
+          rua: string
+        }[]
+      }
       consultar_historico_protocolo: {
         Args: { _prefeitura_id: string; _protocolo: string }
         Returns: {
@@ -428,6 +487,13 @@ export type Database = {
       is_prefeitura_admin: {
         Args: { _prefeitura_id: string; _user_id: string }
         Returns: boolean
+      }
+      submeter_avaliacao: {
+        Args: { _comentario?: string; _estrelas: number; _token: string }
+        Returns: {
+          message: string
+          success: boolean
+        }[]
       }
     }
     Enums: {

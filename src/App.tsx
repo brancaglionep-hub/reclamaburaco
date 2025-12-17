@@ -23,6 +23,8 @@ const PainelReclamacaoDetalhe = lazy(() => import("./pages/painel/PainelReclamac
 const PainelBairros = lazy(() => import("./pages/painel/PainelBairros"));
 const PainelCategorias = lazy(() => import("./pages/painel/PainelCategorias"));
 const PainelConfiguracoes = lazy(() => import("./pages/painel/PainelConfiguracoes"));
+const PainelAvaliacoes = lazy(() => import("./pages/painel/PainelAvaliacoes"));
+const Avaliar = lazy(() => import("./pages/Avaliar"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Optimized QueryClient with caching
@@ -55,6 +57,8 @@ const App = () => (
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/avaliar" element={<Avaliar />} />
+            <Route path="/auth" element={<Auth />} />
             
             {/* Super Admin Routes - MUST come before /:slug */}
             <Route path="/admin" element={<AdminLayout />}>
@@ -69,6 +73,7 @@ const App = () => (
               <Route index element={<PainelDashboard />} />
               <Route path="reclamacoes" element={<PainelReclamacoes />} />
               <Route path="reclamacoes/:id" element={<PainelReclamacaoDetalhe />} />
+              <Route path="avaliacoes" element={<PainelAvaliacoes />} />
               <Route path="bairros" element={<PainelBairros />} />
               <Route path="categorias" element={<PainelCategorias />} />
               <Route path="configuracoes" element={<PainelConfiguracoes />} />
