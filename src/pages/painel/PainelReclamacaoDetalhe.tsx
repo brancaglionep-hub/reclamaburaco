@@ -125,6 +125,35 @@ const PainelReclamacaoDetalhe = () => {
           status_novo: newStatus,
           observacao: resposta ? "Resposta atualizada" : null
         } as any);
+
+        // Fetch prefeitura name for email
+        const { data: prefeituraData } = await supabase
+          .from("prefeituras")
+          .select("nome")
+          .eq("id", prefeituraId)
+          .single();
+
+        // Send email notification to citizen
+        try {
+          await supabase.functions.invoke("send-status-notification", {
+            body: {
+              email: reclamacao.email_cidadao,
+              nome: reclamacao.nome_cidadao,
+              protocolo: reclamacao.protocolo,
+              status_anterior: reclamacao.status,
+              status_novo: newStatus,
+              resposta: resposta || null,
+              rua: reclamacao.rua,
+              bairro: reclamacao.bairros?.nome || null,
+              categoria: reclamacao.categorias?.nome || null,
+              prefeitura_nome: prefeituraData?.nome || "Prefeitura"
+            }
+          });
+          console.log("Email notification sent successfully");
+        } catch (emailError) {
+          console.error("Failed to send email notification:", emailError);
+          // Don't fail the save if email fails
+        }
       }
 
       toast({ title: "Reclamação atualizada!" });

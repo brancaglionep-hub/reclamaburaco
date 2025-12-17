@@ -1,0 +1,210 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { Resend } from "https://esm.sh/resend@2.0.0";
+
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface StatusNotificationRequest {
+  email: string;
+  nome: string;
+  protocolo: string;
+  status_anterior: string;
+  status_novo: string;
+  resposta: string | null;
+  rua: string;
+  bairro: string | null;
+  categoria: string | null;
+  prefeitura_nome: string;
+}
+
+const statusLabels: Record<string, string> = {
+  recebida: "Recebida",
+  em_analise: "Em Análise",
+  em_andamento: "Em Andamento",
+  resolvida: "Resolvida",
+  arquivada: "Arquivada"
+};
+
+const statusColors: Record<string, string> = {
+  recebida: "#3b82f6",
+  em_analise: "#eab308",
+  em_andamento: "#f97316",
+  resolvida: "#22c55e",
+  arquivada: "#6b7280"
+};
+
+const handler = async (req: Request): Promise<Response> => {
+  console.log("Received request to send-status-notification");
+
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const data: StatusNotificationRequest = await req.json();
+    console.log("Processing notification for:", data.protocolo);
+
+    const statusLabel = statusLabels[data.status_novo] || data.status_novo;
+    const statusColor = statusColors[data.status_novo] || "#6b7280";
+    const statusAnteriorLabel = statusLabels[data.status_anterior] || data.status_anterior;
+
+    const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">
+                ${data.prefeitura_nome}
+              </h1>
+              <p style="color: #bfdbfe; margin: 8px 0 0 0; font-size: 14px;">
+                Atualização da sua reclamação
+              </p>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 30px;">
+              <p style="color: #374151; font-size: 16px; margin: 0 0 20px 0;">
+                Olá, <strong>${data.nome}</strong>!
+              </p>
+              
+              <p style="color: #6b7280; font-size: 15px; margin: 0 0 25px 0; line-height: 1.6;">
+                Sua reclamação teve uma atualização de status. Confira os detalhes abaixo:
+              </p>
+              
+              <!-- Protocol Box -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; border-radius: 8px; margin-bottom: 25px;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="color: #6b7280; font-size: 12px; margin: 0 0 5px 0; text-transform: uppercase; letter-spacing: 0.5px;">
+                      Protocolo
+                    </p>
+                    <p style="color: #1f2937; font-size: 20px; margin: 0; font-weight: 700;">
+                      ${data.protocolo}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              
+              <!-- Status Change -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 25px;">
+                <tr>
+                  <td style="text-align: center;">
+                    <table cellpadding="0" cellspacing="0" style="display: inline-table;">
+                      <tr>
+                        <td style="padding: 10px 15px; background-color: #e5e7eb; border-radius: 6px; color: #6b7280; font-size: 14px;">
+                          ${statusAnteriorLabel}
+                        </td>
+                        <td style="padding: 0 15px; color: #9ca3af; font-size: 20px;">
+                          →
+                        </td>
+                        <td style="padding: 10px 15px; background-color: ${statusColor}; border-radius: 6px; color: #ffffff; font-size: 14px; font-weight: 600;">
+                          ${statusLabel}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              
+              <!-- Location Info -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; border-radius: 8px; margin-bottom: 25px;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="color: #6b7280; font-size: 12px; margin: 0 0 5px 0; text-transform: uppercase; letter-spacing: 0.5px;">
+                      Local
+                    </p>
+                    <p style="color: #1f2937; font-size: 15px; margin: 0;">
+                      ${data.rua}${data.bairro ? `, ${data.bairro}` : ''}
+                    </p>
+                    ${data.categoria ? `
+                    <p style="color: #6b7280; font-size: 13px; margin: 8px 0 0 0;">
+                      Categoria: ${data.categoria}
+                    </p>
+                    ` : ''}
+                  </td>
+                </tr>
+              </table>
+              
+              ${data.resposta ? `
+              <!-- Response -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #ecfdf5; border-left: 4px solid #22c55e; border-radius: 0 8px 8px 0; margin-bottom: 25px;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="color: #166534; font-size: 12px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
+                      Resposta da Prefeitura
+                    </p>
+                    <p style="color: #15803d; font-size: 14px; margin: 0; line-height: 1.6;">
+                      ${data.resposta}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
+              
+              <p style="color: #6b7280; font-size: 14px; margin: 0; line-height: 1.6;">
+                Você pode acompanhar o andamento da sua reclamação a qualquer momento utilizando o número do protocolo.
+              </p>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                Este é um email automático. Por favor, não responda.
+              </p>
+              <p style="color: #9ca3af; font-size: 12px; margin: 8px 0 0 0;">
+                ${data.prefeitura_nome} - Civita Infra
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+
+    const emailResponse = await resend.emails.send({
+      from: "Civita Infra <onboarding@resend.dev>",
+      to: [data.email],
+      subject: `[${data.protocolo}] Status atualizado: ${statusLabel}`,
+      html: emailHtml,
+    });
+
+    console.log("Email sent successfully:", emailResponse);
+
+    return new Response(JSON.stringify({ success: true, emailResponse }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
+  } catch (error: any) {
+    console.error("Error in send-status-notification:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
+  }
+};
+
+serve(handler);
