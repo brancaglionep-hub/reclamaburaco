@@ -51,7 +51,17 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
 
 const calcularTempoEspera = (created_at: string, updated_at: string, status: string): number => {
   const inicio = new Date(created_at);
-  const fim = status === 'recebida' ? new Date() : new Date(updated_at);
+  inicio.setHours(0, 0, 0, 0);
+  
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  
+  // Se status é recebida ou updated_at é igual a created_at, calcular desde criação até hoje
+  const fimDate = new Date(updated_at);
+  fimDate.setHours(0, 0, 0, 0);
+  
+  const fim = (status === 'recebida' || fimDate.getTime() === inicio.getTime()) ? hoje : fimDate;
+  
   const diffMs = fim.getTime() - inicio.getTime();
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 };
