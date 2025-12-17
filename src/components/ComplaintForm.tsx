@@ -103,6 +103,7 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
   const [protocolo, setProtocolo] = useState<string>("");
   const [errors, setErrors] = useState<FormErrors>({});
   const [bairros, setBairros] = useState<Bairro[]>([]);
+  const [prefeituraCidade, setPrefeituraCidade] = useState<string>("");
   const [formData, setFormData] = useState<FormData>({
     nome: "",
     email: "",
@@ -118,6 +119,25 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
     videos: [],
     localizacao: null
   });
+
+  // Fetch prefeitura data
+  useEffect(() => {
+    const fetchPrefeitura = async () => {
+      const { data } = await supabase
+        .from("prefeituras")
+        .select("cidade")
+        .eq("id", prefeituraId)
+        .single();
+
+      if (data) {
+        setPrefeituraCidade(data.cidade);
+      }
+    };
+
+    if (prefeituraId) {
+      fetchPrefeitura();
+    }
+  }, [prefeituraId]);
 
   // Fetch bairros for this prefeitura
   useEffect(() => {
@@ -344,7 +364,7 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
             rua: formData.rua,
             bairro: bairroNome,
             categoria: categoriaNome,
-            prefeitura_nome: 'Prefeitura Municipal'
+            prefeitura_nome: `Prefeitura Municipal de ${prefeituraCidade}`
           }
         });
       } catch (emailError) {
