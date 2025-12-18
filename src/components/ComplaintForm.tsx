@@ -406,7 +406,7 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
             </div>
           )}
           <p className="text-muted-foreground mb-8 lg:text-lg">
-            A Prefeitura de Biguaçu irá analisar sua solicitação e tomar as providências necessárias.
+            A {prefeituraCidade ? `Prefeitura de ${prefeituraCidade}` : 'Prefeitura'} irá analisar sua solicitação e tomar as providências necessárias.
           </p>
           <button onClick={onClose} className="btn-hero">
             Voltar ao início
