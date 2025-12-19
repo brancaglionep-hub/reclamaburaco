@@ -660,7 +660,7 @@ export type Database = {
     }
     Enums: {
       app_role: "super_admin" | "admin_prefeitura" | "user"
-      canal_envio: "whatsapp" | "sms" | "push"
+      canal_envio: "whatsapp" | "sms" | "push" | "email"
       complaint_status: "recebida" | "em_andamento" | "resolvida" | "arquivada"
       status_envio: "pendente" | "enviado" | "erro"
       tipo_alerta:
@@ -797,7 +797,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["super_admin", "admin_prefeitura", "user"],
-      canal_envio: ["whatsapp", "sms", "push"],
+      canal_envio: ["whatsapp", "sms", "push", "email"],
       complaint_status: ["recebida", "em_andamento", "resolvida", "arquivada"],
       status_envio: ["pendente", "enviado", "erro"],
       tipo_alerta: [
