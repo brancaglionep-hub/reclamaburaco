@@ -29,6 +29,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+
+const ITEMS_PER_PAGE = 10;
 
 interface OutletContext {
   prefeituraId: string;
@@ -69,6 +79,7 @@ const PainelCidadaos = () => {
   const [telefone, setTelefone] = useState("");
   const [bairroId, setBairroId] = useState<string>("none");
   const [aceitaAlertas, setAceitaAlertas] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchData = async () => {
     try {
@@ -230,6 +241,22 @@ const PainelCidadaos = () => {
       c.telefone?.includes(search)
   );
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredCidadaos.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedCidadaos = filteredCidadaos.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -267,7 +294,7 @@ const PainelCidadaos = () => {
             <Input
               placeholder="Buscar por nome, email ou telefone..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10"
             />
           </div>
@@ -279,7 +306,9 @@ const PainelCidadaos = () => {
         <CardHeader>
           <CardTitle>Lista de Cidadãos</CardTitle>
           <CardDescription>
-            {filteredCidadaos.length} cidadão(s) cadastrado(s)
+            {paginatedCidadaos.length > 0 
+              ? `Mostrando ${startIndex + 1} a ${Math.min(startIndex + ITEMS_PER_PAGE, filteredCidadaos.length)} de ${filteredCidadaos.length} cidadão(s)`
+              : `${filteredCidadaos.length} cidadão(s) cadastrado(s)`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -306,7 +335,7 @@ const PainelCidadaos = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCidadaos.map((cidadao) => (
+                  {paginatedCidadaos.map((cidadao) => (
                     <TableRow key={cidadao.id}>
                       <TableCell className="font-medium">{cidadao.nome}</TableCell>
                       <TableCell>{cidadao.email || "-"}</TableCell>
@@ -358,6 +387,39 @@ const PainelCidadaos = () => {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-4 pt-4 border-t">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={() => handlePageChange(page)}
+                        isActive={currentPage === page}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           )}
         </CardContent>
