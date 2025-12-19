@@ -192,6 +192,7 @@ export type Database = {
           email_contato: string | null
           estado: string
           id: string
+          imagem_capa_url: string | null
           logo_url: string | null
           nome: string
           slug: string
@@ -208,6 +209,7 @@ export type Database = {
           email_contato?: string | null
           estado?: string
           id?: string
+          imagem_capa_url?: string | null
           logo_url?: string | null
           nome: string
           slug: string
@@ -224,6 +226,7 @@ export type Database = {
           email_contato?: string | null
           estado?: string
           id?: string
+          imagem_capa_url?: string | null
           logo_url?: string | null
           nome?: string
           slug?: string
