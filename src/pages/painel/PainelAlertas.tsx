@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useOutletContext, Link } from "react-router-dom";
-import { AlertTriangle, Send, CloudRain, Droplets, Siren, Bell, Users, MapPin, History } from "lucide-react";
+import { AlertTriangle, Send, CloudRain, Droplets, Siren, Bell, Users, MapPin, History, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,6 +71,11 @@ const PainelAlertas = () => {
   const [bairros, setBairros] = useState<Bairro[]>([]);
   const [cidadaosCount, setCidadaosCount] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  
+  // Progress tracking state
+  const [progressOpen, setProgressOpen] = useState(false);
+  const [currentAlertaId, setCurrentAlertaId] = useState<string | null>(null);
+  const [progressData, setProgressData] = useState({ enviados: 0, total: 0, concluido: false });
 
   // Form state
   const [titulo, setTitulo] = useState("");
@@ -154,9 +167,26 @@ const PainelAlertas = () => {
   const handleConfirmSend = async () => {
     setConfirmOpen(false);
     setSending(true);
+    setProgressData({ enviados: 0, total: 0, concluido: false });
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      
+      // Count recipients to show expected total
+      let countQuery = supabase
+        .from("cidadaos")
+        .select("*", { count: "exact", head: true })
+        .eq("prefeitura_id", prefeituraId)
+        .eq("ativo", true)
+        .eq("aceita_alertas", true);
+      
+      if (bairroId !== "todos") {
+        countQuery = countQuery.eq("bairro_id", bairroId);
+      }
+      
+      const { count: recipientCount } = await countQuery;
+      const expectedTotal = (recipientCount || 0) * canais.length;
+      setProgressData({ enviados: 0, total: expectedTotal, concluido: false });
       
       // Create the alert
       const { data: alerta, error: alertaError } = await supabase
@@ -175,24 +205,26 @@ const PainelAlertas = () => {
 
       if (alertaError) throw alertaError;
 
-      // Call edge function to process the alert
-      const { error: fnError } = await supabase.functions.invoke("send-alert", {
-        body: { alertaId: alerta.id },
-      });
+      // Open progress dialog and set current alert ID
+      setCurrentAlertaId(alerta.id);
+      setProgressOpen(true);
+      setSending(false);
 
-      if (fnError) {
-        console.error("Erro ao processar envio:", fnError);
-        toast({
-          title: "Alerta criado",
-          description: "O alerta foi registrado, mas houve um erro no envio. Verifique o histórico.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Alerta disparado!",
-          description: "O alerta está sendo enviado para os cidadãos.",
-        });
-      }
+      // Call edge function to process the alert (don't await, let it run in background)
+      supabase.functions.invoke("send-alert", {
+        body: { alertaId: alerta.id },
+      }).then(({ data, error: fnError }) => {
+        if (fnError) {
+          console.error("Erro ao processar envio:", fnError);
+          toast({
+            title: "Erro no envio",
+            description: "Houve um erro no envio. Verifique o histórico.",
+            variant: "destructive",
+          });
+        }
+        // Mark as complete
+        setProgressData(prev => ({ ...prev, concluido: true, enviados: data?.enviados || prev.enviados }));
+      });
 
       // Reset form
       setTitulo("");
@@ -207,9 +239,45 @@ const PainelAlertas = () => {
         description: "Não foi possível criar o alerta. Tente novamente.",
         variant: "destructive",
       });
-    } finally {
       setSending(false);
     }
+  };
+
+  // Subscribe to realtime updates for progress tracking
+  useEffect(() => {
+    if (!currentAlertaId || !progressOpen) return;
+
+    const channel = supabase
+      .channel(`alerta-progress-${currentAlertaId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'alertas',
+          filter: `id=eq.${currentAlertaId}`,
+        },
+        (payload) => {
+          const newData = payload.new as any;
+          setProgressData(prev => ({
+            ...prev,
+            enviados: newData.total_enviados || 0,
+            // When total_erros becomes less than total (final update), mark as complete
+            total: prev.total || newData.total_erros || 0,
+          }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentAlertaId, progressOpen]);
+
+  const handleCloseProgress = () => {
+    setProgressOpen(false);
+    setCurrentAlertaId(null);
+    setProgressData({ enviados: 0, total: 0, concluido: false });
   };
 
   if (loading) {
@@ -436,6 +504,72 @@ const PainelAlertas = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Progress Dialog */}
+      <Dialog open={progressOpen} onOpenChange={(open) => !open && progressData.concluido && handleCloseProgress()}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => !progressData.concluido && e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {progressData.concluido ? (
+                <>
+                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  Envio Concluído
+                </>
+              ) : (
+                <>
+                  <Send className="w-5 h-5 text-primary animate-pulse" />
+                  Enviando Alertas...
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {progressData.concluido 
+                ? "Todos os alertas foram processados com sucesso."
+                : "Acompanhe o progresso do envio em tempo real."
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Progresso do envio</span>
+                <span className="font-medium">
+                  {progressData.enviados} / {progressData.total}
+                </span>
+              </div>
+              <Progress 
+                value={progressData.total > 0 ? (progressData.enviados / progressData.total) * 100 : 0} 
+                className="h-3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg text-center">
+                <p className="text-2xl font-bold text-green-600">{progressData.enviados}</p>
+                <p className="text-xs text-muted-foreground">Enviados</p>
+              </div>
+              <div className="bg-muted p-3 rounded-lg text-center">
+                <p className="text-2xl font-bold">{progressData.total}</p>
+                <p className="text-xs text-muted-foreground">Total</p>
+              </div>
+            </div>
+
+            {!progressData.concluido && (
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                Processando envios...
+              </div>
+            )}
+          </div>
+
+          {progressData.concluido && (
+            <div className="flex justify-end">
+              <Button onClick={handleCloseProgress}>Fechar</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

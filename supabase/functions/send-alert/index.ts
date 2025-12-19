@@ -62,6 +62,18 @@ serve(async (req) => {
       });
     }
 
+    const totalCidadaos = cidadaos?.length || 0;
+    const totalEnviosEsperados = totalCidadaos * (alerta.canais?.length || 1);
+    
+    // Initialize progress - set total_erros as total expected for progress tracking
+    await supabase
+      .from("alertas")
+      .update({
+        total_enviados: 0,
+        total_erros: totalEnviosEsperados, // Using total_erros temporarily to store total expected
+      })
+      .eq("id", alertaId);
+
     const prefeituraNome = alerta.prefeitura?.nome || "Prefeitura";
     let totalEnviados = 0;
     let totalErros = 0;
@@ -86,6 +98,14 @@ serve(async (req) => {
             totalEnviados++;
           }
 
+          // Update progress in real-time
+          await supabase
+            .from("alertas")
+            .update({
+              total_enviados: totalEnviados,
+            })
+            .eq("id", alertaId);
+
           // TODO: Integrate with actual messaging APIs (WhatsApp, SMS, Push)
           // For now, we just log the message that would be sent
           console.log(`[${canal.toUpperCase()}] Sending to ${cidadao.nome}:`, {
@@ -98,7 +118,7 @@ serve(async (req) => {
       }
     }
 
-    // Update alert totals
+    // Final update with actual error count
     await supabase
       .from("alertas")
       .update({
@@ -110,7 +130,7 @@ serve(async (req) => {
     console.log(`Alerta ${alertaId} processado: ${totalEnviados} enviados, ${totalErros} erros`);
 
     return new Response(
-      JSON.stringify({ success: true, enviados: totalEnviados, erros: totalErros }),
+      JSON.stringify({ success: true, enviados: totalEnviados, erros: totalErros, total: totalEnviosEsperados }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   } catch (error: unknown) {
