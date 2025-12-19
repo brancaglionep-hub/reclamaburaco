@@ -1,163 +1,142 @@
-import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { FileText, Clock, CheckCircle2, AlertCircle, TrendingUp, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+import { useQuery } from "@tanstack/react-query";
 
 interface OutletContext {
   prefeitura: { id: string; nome: string; cidade: string } | null;
   prefeituraId: string;
 }
 
-interface Stats {
-  total: number;
-  recebidas: number;
-  emAndamento: number;
-  resolvidas: number;
-  doMes: number;
-}
-
 const COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#6b7280"];
 
 const PainelDashboard = () => {
   const { prefeituraId } = useOutletContext<OutletContext>();
-  const [stats, setStats] = useState<Stats>({ total: 0, recebidas: 0, emAndamento: 0, resolvidas: 0, doMes: 0 });
-  const [bairroStats, setBairroStats] = useState<{ nome: string; total: number }[]>([]);
-  const [categoriaStats, setCategoriaStats] = useState<{ nome: string; total: number }[]>([]);
-  const [statusStats, setStatusStats] = useState<{ name: string; value: number }[]>([]);
-  const [visitasStats, setVisitasStats] = useState<{ date: string; visitas: number }[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      // Total
-      const { count: total } = await supabase
-        .from("reclamacoes")
-        .select("*", { count: "exact", head: true })
-        .eq("prefeitura_id", prefeituraId);
-
-      // Recebidas
-      const { count: recebidas } = await supabase
-        .from("reclamacoes")
-        .select("*", { count: "exact", head: true })
-        .eq("prefeitura_id", prefeituraId)
-        .eq("status", "recebida");
-
-      // Em andamento
-      const { count: emAndamento } = await supabase
-        .from("reclamacoes")
-        .select("*", { count: "exact", head: true })
-        .eq("prefeitura_id", prefeituraId)
-        .eq("status", "em_andamento");
-
-      // Resolvidas
-      const { count: resolvidas } = await supabase
-        .from("reclamacoes")
-        .select("*", { count: "exact", head: true })
-        .eq("prefeitura_id", prefeituraId)
-        .eq("status", "resolvida");
-
-      // Do mês
+  // Fetch all stats in a single optimized query
+  const { data, isLoading } = useQuery({
+    queryKey: ["painel-dashboard", prefeituraId],
+    queryFn: async () => {
+      // Run all count queries in parallel
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
-      
-      const { count: doMes } = await supabase
-        .from("reclamacoes")
-        .select("*", { count: "exact", head: true })
-        .eq("prefeitura_id", prefeituraId)
-        .gte("created_at", startOfMonth.toISOString());
 
-      setStats({
-        total: total || 0,
-        recebidas: recebidas || 0,
-        emAndamento: emAndamento || 0,
-        resolvidas: resolvidas || 0,
-        doMes: doMes || 0
-      });
-
-      setStatusStats([
-        { name: "Recebidas", value: recebidas || 0 },
-        { name: "Em andamento", value: emAndamento || 0 },
-        { name: "Resolvidas", value: resolvidas || 0 }
+      const [
+        totalRes,
+        recebidasRes,
+        emAndamentoRes,
+        resolvidasRes,
+        doMesRes,
+        reclamacoesRes,
+        bairrosRes,
+        categoriasRes,
+        visitasRes
+      ] = await Promise.all([
+        supabase.from("reclamacoes").select("*", { count: "exact", head: true }).eq("prefeitura_id", prefeituraId),
+        supabase.from("reclamacoes").select("*", { count: "exact", head: true }).eq("prefeitura_id", prefeituraId).eq("status", "recebida"),
+        supabase.from("reclamacoes").select("*", { count: "exact", head: true }).eq("prefeitura_id", prefeituraId).eq("status", "em_andamento"),
+        supabase.from("reclamacoes").select("*", { count: "exact", head: true }).eq("prefeitura_id", prefeituraId).eq("status", "resolvida"),
+        supabase.from("reclamacoes").select("*", { count: "exact", head: true }).eq("prefeitura_id", prefeituraId).gte("created_at", startOfMonth.toISOString()),
+        supabase.from("reclamacoes").select("bairro_id, categoria_id, created_at").eq("prefeitura_id", prefeituraId),
+        supabase.from("bairros").select("id, nome").eq("prefeitura_id", prefeituraId),
+        supabase.from("categorias").select("id, nome").or(`prefeitura_id.eq.${prefeituraId},global.eq.true`),
+        supabase.from("visitas").select("created_at").eq("prefeitura_id", prefeituraId).gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
       ]);
 
-      // Bairros com mais reclamações
-      const { data: bairros } = await supabase
-        .from("bairros")
-        .select("id, nome")
-        .eq("prefeitura_id", prefeituraId);
+      // Process stats
+      const stats = {
+        total: totalRes.count || 0,
+        recebidas: recebidasRes.count || 0,
+        emAndamento: emAndamentoRes.count || 0,
+        resolvidas: resolvidasRes.count || 0,
+        doMes: doMesRes.count || 0
+      };
 
-      if (bairros) {
-        const bairroPromises = bairros.map(async (b) => {
-          const { count } = await supabase
-            .from("reclamacoes")
-            .select("*", { count: "exact", head: true })
-            .eq("bairro_id", b.id);
-          return { nome: b.nome, total: count || 0 };
-        });
-        const results = await Promise.all(bairroPromises);
-        setBairroStats(results.filter(r => r.total > 0).sort((a, b) => b.total - a.total).slice(0, 10));
-      }
+      const statusStats = [
+        { name: "Recebidas", value: stats.recebidas },
+        { name: "Em andamento", value: stats.emAndamento },
+        { name: "Resolvidas", value: stats.resolvidas }
+      ];
 
-      // Categorias
-      const { data: categorias } = await supabase
-        .from("categorias")
-        .select("id, nome")
-        .or(`prefeitura_id.eq.${prefeituraId},global.eq.true`);
+      // Process bairro stats from reclamacoes data
+      const reclamacoes = reclamacoesRes.data || [];
+      const bairros = bairrosRes.data || [];
+      
+      const bairroCountMap = new Map<string, number>();
+      reclamacoes.forEach(r => {
+        if (r.bairro_id) {
+          bairroCountMap.set(r.bairro_id, (bairroCountMap.get(r.bairro_id) || 0) + 1);
+        }
+      });
+      
+      const bairroStats = bairros
+        .map(b => ({ nome: b.nome, total: bairroCountMap.get(b.id) || 0 }))
+        .filter(r => r.total > 0)
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 10);
 
-      if (categorias) {
-        const catPromises = categorias.map(async (c) => {
-          const { count } = await supabase
-            .from("reclamacoes")
-            .select("*", { count: "exact", head: true })
-            .eq("prefeitura_id", prefeituraId)
-            .eq("categoria_id", c.id);
-          return { nome: c.nome, total: count || 0 };
-        });
-        const results = await Promise.all(catPromises);
-        setCategoriaStats(results.filter(r => r.total > 0).sort((a, b) => b.total - a.total));
-      }
+      // Process categoria stats
+      const categorias = categoriasRes.data || [];
+      const categoriaCountMap = new Map<string, number>();
+      reclamacoes.forEach(r => {
+        if (r.categoria_id) {
+          categoriaCountMap.set(r.categoria_id, (categoriaCountMap.get(r.categoria_id) || 0) + 1);
+        }
+      });
+      
+      const categoriaStats = categorias
+        .map(c => ({ nome: c.nome, total: categoriaCountMap.get(c.id) || 0 }))
+        .filter(r => r.total > 0)
+        .sort((a, b) => b.total - a.total);
 
-      // Visitas nos últimos 7 dias
-      const last7Days = [];
+      // Process visitas stats - group by day
+      const visitas = visitasRes.data || [];
+      const visitasByDay = new Map<string, number>();
+      
+      // Initialize last 7 days
       for (let i = 6; i >= 0; i--) {
         const date = new Date();
         date.setDate(date.getDate() - i);
-        date.setHours(0, 0, 0, 0);
-        const nextDate = new Date(date);
-        nextDate.setDate(nextDate.getDate() + 1);
-
-        const { count } = await supabase
-          .from("visitas")
-          .select("*", { count: "exact", head: true })
-          .eq("prefeitura_id", prefeituraId)
-          .gte("created_at", date.toISOString())
-          .lt("created_at", nextDate.toISOString());
-
-        last7Days.push({
-          date: date.toLocaleDateString("pt-BR", { weekday: "short" }),
-          visitas: count || 0
-        });
+        const dateKey = date.toISOString().split('T')[0];
+        visitasByDay.set(dateKey, 0);
       }
-      setVisitasStats(last7Days);
+      
+      visitas.forEach(v => {
+        const dateKey = v.created_at.split('T')[0];
+        if (visitasByDay.has(dateKey)) {
+          visitasByDay.set(dateKey, (visitasByDay.get(dateKey) || 0) + 1);
+        }
+      });
 
-      setLoading(false);
-    };
+      const visitasStats = Array.from(visitasByDay.entries()).map(([dateStr, count]) => ({
+        date: new Date(dateStr).toLocaleDateString("pt-BR", { weekday: "short" }),
+        visitas: count
+      }));
 
-    if (prefeituraId) {
-      fetchStats();
-    }
-  }, [prefeituraId]);
+      return { stats, statusStats, bairroStats, categoriaStats, visitasStats };
+    },
+    enabled: !!prefeituraId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
+
+  const { stats, statusStats, bairroStats, categoriaStats, visitasStats } = data || {
+    stats: { total: 0, recebidas: 0, emAndamento: 0, resolvidas: 0, doMes: 0 },
+    statusStats: [],
+    bairroStats: [],
+    categoriaStats: [],
+    visitasStats: []
+  };
 
   return (
     <div className="space-y-8">

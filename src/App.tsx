@@ -9,21 +9,26 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import CityPage from "./pages/CityPage";
 
-// Lazy load admin and panel pages (not needed on initial load)
+// Lazy load admin layout (pages load with it)
 const Auth = lazy(() => import("./pages/Auth"));
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminPrefeituras = lazy(() => import("./pages/admin/AdminPrefeituras"));
 const AdminUsuarios = lazy(() => import("./pages/admin/AdminUsuarios"));
 const AdminCategorias = lazy(() => import("./pages/admin/AdminCategorias"));
+
+// Lazy load painel layout
 const PainelLayout = lazy(() => import("./components/painel/PainelLayout"));
-const PainelDashboard = lazy(() => import("./pages/painel/PainelDashboard"));
-const PainelReclamacoes = lazy(() => import("./pages/painel/PainelReclamacoes"));
-const PainelReclamacaoDetalhe = lazy(() => import("./pages/painel/PainelReclamacaoDetalhe"));
-const PainelBairros = lazy(() => import("./pages/painel/PainelBairros"));
-const PainelCategorias = lazy(() => import("./pages/painel/PainelCategorias"));
-const PainelConfiguracoes = lazy(() => import("./pages/painel/PainelConfiguracoes"));
-const PainelAvaliacoes = lazy(() => import("./pages/painel/PainelAvaliacoes"));
+
+// Eagerly load painel pages after layout (they share dependencies)
+import PainelDashboard from "./pages/painel/PainelDashboard";
+import PainelReclamacoes from "./pages/painel/PainelReclamacoes";
+import PainelReclamacaoDetalhe from "./pages/painel/PainelReclamacaoDetalhe";
+import PainelBairros from "./pages/painel/PainelBairros";
+import PainelCategorias from "./pages/painel/PainelCategorias";
+import PainelConfiguracoes from "./pages/painel/PainelConfiguracoes";
+import PainelAvaliacoes from "./pages/painel/PainelAvaliacoes";
+
 const Avaliar = lazy(() => import("./pages/Avaliar"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -32,7 +37,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 10, // 10 minutes (formerly cacheTime)
+      gcTime: 1000 * 60 * 10, // 10 minutes
       refetchOnWindowFocus: false,
       retry: 1,
     },

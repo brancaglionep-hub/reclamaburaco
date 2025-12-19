@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { Search, Eye, Clock, CheckCircle2, AlertCircle, Filter, Printer, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 interface OutletContext {
   prefeituraId: string;
@@ -56,7 +57,6 @@ const calcularTempoEspera = (created_at: string, updated_at: string, status: str
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
   
-  // Se status é recebida ou updated_at é igual a created_at, calcular desde criação até hoje
   const fimDate = new Date(updated_at);
   fimDate.setHours(0, 0, 0, 0);
   
@@ -75,14 +75,13 @@ const formatarTempoEspera = (dias: number): string => {
 const PainelReclamacoes = () => {
   const { prefeituraId } = useOutletContext<OutletContext>();
   const navigate = useNavigate();
-  const [reclamacoes, setReclamacoes] = useState<Reclamacao[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [tempoFilter, setTempoFilter] = useState<string>("all");
 
-  useEffect(() => {
-    const fetchReclamacoes = async () => {
+  const { data: reclamacoes = [], isLoading } = useQuery({
+    queryKey: ["painel-reclamacoes", prefeituraId, statusFilter],
+    queryFn: async () => {
       let query = supabase
         .from("reclamacoes")
         .select(`
@@ -109,16 +108,12 @@ const PainelReclamacoes = () => {
 
       const { data, error } = await query;
 
-      if (!error && data) {
-        setReclamacoes(data as any);
-      }
-      setLoading(false);
-    };
-
-    if (prefeituraId) {
-      fetchReclamacoes();
-    }
-  }, [prefeituraId, statusFilter]);
+      if (error) throw error;
+      return (data || []) as Reclamacao[];
+    },
+    enabled: !!prefeituraId,
+    staleTime: 1000 * 60, // 1 minute
+  });
 
   const filteredReclamacoes = reclamacoes.filter(r => {
     const matchesSearch = r.protocolo.toLowerCase().includes(search.toLowerCase()) ||
@@ -196,7 +191,6 @@ const PainelReclamacoes = () => {
   };
 
   const handlePrint = async (reclamacaoId: string) => {
-    // Buscar dados completos da reclamação
     const { data, error } = await supabase
       .from("reclamacoes")
       .select(`
@@ -328,7 +322,7 @@ const PainelReclamacoes = () => {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
