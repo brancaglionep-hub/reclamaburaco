@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
 import { useOutletContext, Link } from "react-router-dom";
-import { History, AlertTriangle, CheckCircle2, XCircle, CloudRain, Droplets, Siren, Bell, ChevronRight, Users } from "lucide-react";
+import { History, AlertTriangle, CheckCircle2, XCircle, CloudRain, Droplets, Siren, Bell, CalendarIcon, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface OutletContext {
   prefeituraId: string;
@@ -54,49 +57,64 @@ const PainelAlertasHistorico = () => {
   const [loading, setLoading] = useState(true);
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [stats, setStats] = useState({ total: 0, enviados: 0, erros: 0 });
+  const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
+  const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
+
+  const fetchAlertas = async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from("alertas")
+        .select(`
+          id,
+          titulo,
+          tipo,
+          mensagem,
+          canais,
+          total_enviados,
+          total_erros,
+          created_at,
+          bairro:bairros(nome)
+        `)
+        .eq("prefeitura_id", prefeituraId)
+        .order("created_at", { ascending: false });
+
+      if (dataInicio) {
+        query = query.gte("created_at", startOfDay(dataInicio).toISOString());
+      }
+      if (dataFim) {
+        query = query.lte("created_at", endOfDay(dataFim).toISOString());
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      const alertasData = (data || []) as unknown as Alerta[];
+      setAlertas(alertasData);
+
+      const totalEnviados = alertasData.reduce((acc, a) => acc + (a.total_enviados || 0), 0);
+      const totalErros = alertasData.reduce((acc, a) => acc + (a.total_erros || 0), 0);
+      setStats({
+        total: alertasData.length,
+        enviados: totalEnviados,
+        erros: totalErros,
+      });
+    } catch (error) {
+      console.error("Erro ao carregar histórico:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchAlertas = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("alertas")
-          .select(`
-            id,
-            titulo,
-            tipo,
-            mensagem,
-            canais,
-            total_enviados,
-            total_erros,
-            created_at,
-            bairro:bairros(nome)
-          `)
-          .eq("prefeitura_id", prefeituraId)
-          .order("created_at", { ascending: false });
-
-        if (error) throw error;
-
-        // Type assertion for the query result
-        const alertasData = (data || []) as unknown as Alerta[];
-        setAlertas(alertasData);
-
-        // Calculate stats
-        const totalEnviados = alertasData.reduce((acc, a) => acc + (a.total_enviados || 0), 0);
-        const totalErros = alertasData.reduce((acc, a) => acc + (a.total_erros || 0), 0);
-        setStats({
-          total: alertasData.length,
-          enviados: totalEnviados,
-          erros: totalErros,
-        });
-      } catch (error) {
-        console.error("Erro ao carregar histórico:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (prefeituraId) fetchAlertas();
-  }, [prefeituraId]);
+  }, [prefeituraId, dataInicio, dataFim]);
+
+  const limparFiltros = () => {
+    setDataInicio(undefined);
+    setDataFim(undefined);
+  };
 
   if (loading) {
     return (
@@ -129,7 +147,69 @@ const PainelAlertasHistorico = () => {
         </Button>
       </div>
 
-      {/* Stats */}
+      {/* Filtro de Data */}
+      <Card>
+        <CardContent className="flex flex-wrap items-center gap-4 p-4">
+          <span className="text-sm font-medium text-muted-foreground">Filtrar por data:</span>
+          
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-[180px] justify-start text-left font-normal",
+                  !dataInicio && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dataInicio ? format(dataInicio, "dd/MM/yyyy", { locale: ptBR }) : "Data início"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dataInicio}
+                onSelect={setDataInicio}
+                initialFocus
+                locale={ptBR}
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-[180px] justify-start text-left font-normal",
+                  !dataFim && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dataFim ? format(dataFim, "dd/MM/yyyy", { locale: ptBR }) : "Data fim"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dataFim}
+                onSelect={setDataFim}
+                initialFocus
+                locale={ptBR}
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+
+          {(dataInicio || dataFim) && (
+            <Button variant="ghost" size="sm" onClick={limparFiltros} className="gap-1">
+              <X className="h-4 w-4" />
+              Limpar filtros
+            </Button>
+          )}
+        </CardContent>
+      </Card>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="flex items-center gap-4 p-4">
