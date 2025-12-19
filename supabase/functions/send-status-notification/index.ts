@@ -54,7 +54,8 @@ const handler = async (req: Request): Promise<Response> => {
     const statusAnteriorLabel = statusLabels[data.status_anterior] || data.status_anterior;
     
     // Generate rating link if this is a resolved status
-    const baseUrl = "https://civitainfra.com.br";
+    // Using Lovable preview URL until custom domain is configured
+    const baseUrl = "https://id-preview--8455dae8-b314-4d87-9cf0-20d7e94cb18d.lovable.app";
     const ratingLink = data.avaliacao_token 
       ? `${baseUrl}/avaliar?token=${data.avaliacao_token}`
       : null;
