@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Save, Upload, Building2 } from "lucide-react";
+import { Save, Upload, Building2, ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ interface Prefeitura {
   texto_institucional: string | null;
   email_contato: string | null;
   telefone_contato: string | null;
+  imagem_capa_url: string | null;
 }
 
 const PainelConfiguracoes = () => {
@@ -37,7 +38,8 @@ const PainelConfiguracoes = () => {
     cor_secundaria: "#3b82f6",
     texto_institucional: "",
     email_contato: "",
-    telefone_contato: ""
+    telefone_contato: "",
+    imagem_capa_url: ""
   });
 
   useEffect(() => {
@@ -58,7 +60,8 @@ const PainelConfiguracoes = () => {
           cor_secundaria: data.cor_secundaria || "#3b82f6",
           texto_institucional: data.texto_institucional || "",
           email_contato: data.email_contato || "",
-          telefone_contato: data.telefone_contato || ""
+          telefone_contato: data.telefone_contato || "",
+          imagem_capa_url: data.imagem_capa_url || ""
         });
       }
       setLoading(false);
@@ -82,7 +85,8 @@ const PainelConfiguracoes = () => {
         cor_secundaria: formData.cor_secundaria,
         texto_institucional: formData.texto_institucional || null,
         email_contato: formData.email_contato || null,
-        telefone_contato: formData.telefone_contato || null
+        telefone_contato: formData.telefone_contato || null,
+        imagem_capa_url: formData.imagem_capa_url || null
       })
       .eq("id", prefeituraId);
 
@@ -117,6 +121,30 @@ const PainelConfiguracoes = () => {
 
     setFormData({ ...formData, logo_url: publicUrl });
     toast({ title: "Logo enviado! Clique em Salvar para aplicar." });
+  };
+
+  const handleCapaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileExt = file.name.split(".").pop();
+    const filePath = `capas/${prefeituraId}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("reclamacoes-media")
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      toast({ title: "Erro ao fazer upload", variant: "destructive" });
+      return;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from("reclamacoes-media")
+      .getPublicUrl(filePath);
+
+    setFormData({ ...formData, imagem_capa_url: publicUrl });
+    toast({ title: "Imagem de capa enviada! Clique em Salvar para aplicar." });
   };
 
   if (loading) {
@@ -238,7 +266,7 @@ const PainelConfiguracoes = () => {
 
           {/* Preview */}
           <div className="pt-4 border-t border-border">
-            <p className="text-sm text-muted-foreground mb-2">Preview</p>
+            <p className="text-sm text-muted-foreground mb-2">Preview das Cores</p>
             <div className="flex gap-2">
               <div
                 className="w-16 h-8 rounded"
@@ -248,6 +276,57 @@ const PainelConfiguracoes = () => {
                 className="w-16 h-8 rounded"
                 style={{ backgroundColor: formData.cor_secundaria }}
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Imagem de Capa */}
+        <div className="bg-card rounded-xl border border-border p-6 space-y-4 lg:col-span-2">
+          <h2 className="font-semibold text-foreground">Imagem de Capa</h2>
+          <p className="text-sm text-muted-foreground">
+            Esta imagem aparece na página inicial da sua prefeitura, ao lado do formulário de reclamação.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row items-start gap-4">
+            {formData.imagem_capa_url ? (
+              <img 
+                src={formData.imagem_capa_url} 
+                alt="Imagem de capa" 
+                className="w-full sm:w-64 h-40 object-cover rounded-lg border border-border" 
+              />
+            ) : (
+              <div className="w-full sm:w-64 h-40 rounded-lg bg-muted flex items-center justify-center border border-dashed border-border">
+                <div className="text-center">
+                  <ImageIcon className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+                  <span className="text-sm text-muted-foreground">Nenhuma imagem</span>
+                </div>
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <label className="cursor-pointer">
+                <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors">
+                  <Upload className="w-4 h-4" />
+                  <span className="text-sm">Enviar Imagem de Capa</span>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCapaUpload}
+                  className="hidden"
+                />
+              </label>
+              {formData.imagem_capa_url && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFormData({ ...formData, imagem_capa_url: "" })}
+                >
+                  Remover imagem
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Recomendado: 800x600 pixels ou maior
+              </p>
             </div>
           </div>
         </div>

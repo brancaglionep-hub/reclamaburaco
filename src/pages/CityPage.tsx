@@ -20,6 +20,7 @@ interface Prefeitura {
   texto_institucional: string | null;
   email_contato: string | null;
   telefone_contato: string | null;
+  imagem_capa_url: string | null;
 }
 
 const CityPage = () => {
@@ -201,9 +202,10 @@ const CityPage = () => {
             <div className="relative hidden lg:block">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent rounded-3xl" />
               <img
-                src={heroImage}
-                alt="Trabalhadores consertando rua"
-                className="w-full h-auto rounded-3xl shadow-2xl"
+                src={prefeitura.imagem_capa_url || heroImage}
+                alt="Imagem de capa"
+                className="w-full h-auto rounded-3xl shadow-2xl object-cover"
+                style={{ minHeight: "400px", maxHeight: "500px" }}
                 loading="lazy"
               />
             </div>
