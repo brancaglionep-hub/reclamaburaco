@@ -14,6 +14,111 @@ export type Database = {
   }
   public: {
     Tables: {
+      alerta_envios: {
+        Row: {
+          alerta_id: string
+          canal: Database["public"]["Enums"]["canal_envio"]
+          cidadao_id: string
+          created_at: string | null
+          enviado_em: string | null
+          erro_mensagem: string | null
+          id: string
+          status: Database["public"]["Enums"]["status_envio"] | null
+        }
+        Insert: {
+          alerta_id: string
+          canal: Database["public"]["Enums"]["canal_envio"]
+          cidadao_id: string
+          created_at?: string | null
+          enviado_em?: string | null
+          erro_mensagem?: string | null
+          id?: string
+          status?: Database["public"]["Enums"]["status_envio"] | null
+        }
+        Update: {
+          alerta_id?: string
+          canal?: Database["public"]["Enums"]["canal_envio"]
+          cidadao_id?: string
+          created_at?: string | null
+          enviado_em?: string | null
+          erro_mensagem?: string | null
+          id?: string
+          status?: Database["public"]["Enums"]["status_envio"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alerta_envios_alerta_id_fkey"
+            columns: ["alerta_id"]
+            isOneToOne: false
+            referencedRelation: "alertas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alerta_envios_cidadao_id_fkey"
+            columns: ["cidadao_id"]
+            isOneToOne: false
+            referencedRelation: "cidadaos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alertas: {
+        Row: {
+          bairro_id: string | null
+          canais: Database["public"]["Enums"]["canal_envio"][]
+          created_at: string | null
+          criado_por: string | null
+          id: string
+          mensagem: string
+          prefeitura_id: string
+          tipo: Database["public"]["Enums"]["tipo_alerta"]
+          titulo: string
+          total_enviados: number | null
+          total_erros: number | null
+        }
+        Insert: {
+          bairro_id?: string | null
+          canais?: Database["public"]["Enums"]["canal_envio"][]
+          created_at?: string | null
+          criado_por?: string | null
+          id?: string
+          mensagem: string
+          prefeitura_id: string
+          tipo: Database["public"]["Enums"]["tipo_alerta"]
+          titulo: string
+          total_enviados?: number | null
+          total_erros?: number | null
+        }
+        Update: {
+          bairro_id?: string | null
+          canais?: Database["public"]["Enums"]["canal_envio"][]
+          created_at?: string | null
+          criado_por?: string | null
+          id?: string
+          mensagem?: string
+          prefeitura_id?: string
+          tipo?: Database["public"]["Enums"]["tipo_alerta"]
+          titulo?: string
+          total_enviados?: number | null
+          total_erros?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alertas_bairro_id_fkey"
+            columns: ["bairro_id"]
+            isOneToOne: false
+            referencedRelation: "bairros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alertas_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       avaliacoes: {
         Row: {
           avaliado_em: string | null
@@ -131,6 +236,60 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "categorias_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cidadaos: {
+        Row: {
+          aceita_alertas: boolean | null
+          ativo: boolean | null
+          bairro_id: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          nome: string
+          prefeitura_id: string
+          telefone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          aceita_alertas?: boolean | null
+          ativo?: boolean | null
+          bairro_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          nome: string
+          prefeitura_id: string
+          telefone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          aceita_alertas?: boolean | null
+          ativo?: boolean | null
+          bairro_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          nome?: string
+          prefeitura_id?: string
+          telefone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cidadaos_bairro_id_fkey"
+            columns: ["bairro_id"]
+            isOneToOne: false
+            referencedRelation: "bairros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cidadaos_prefeitura_id_fkey"
             columns: ["prefeitura_id"]
             isOneToOne: false
             referencedRelation: "prefeituras"
@@ -501,7 +660,15 @@ export type Database = {
     }
     Enums: {
       app_role: "super_admin" | "admin_prefeitura" | "user"
+      canal_envio: "whatsapp" | "sms" | "push"
       complaint_status: "recebida" | "em_andamento" | "resolvida" | "arquivada"
+      status_envio: "pendente" | "enviado" | "erro"
+      tipo_alerta:
+        | "enchente"
+        | "chuva_forte"
+        | "alagamento"
+        | "emergencia"
+        | "aviso_geral"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -630,7 +797,16 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["super_admin", "admin_prefeitura", "user"],
+      canal_envio: ["whatsapp", "sms", "push"],
       complaint_status: ["recebida", "em_andamento", "resolvida", "arquivada"],
+      status_envio: ["pendente", "enviado", "erro"],
+      tipo_alerta: [
+        "enchente",
+        "chuva_forte",
+        "alagamento",
+        "emergencia",
+        "aviso_geral",
+      ],
     },
   },
 } as const
