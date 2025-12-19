@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useOutletContext } from "react-router-dom";
-import { AlertTriangle, Send, CloudRain, Droplets, Siren, Bell, Users, MapPin } from "lucide-react";
+import { useOutletContext, Link } from "react-router-dom";
+import { AlertTriangle, Send, CloudRain, Droplets, Siren, Bell, Users, MapPin, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -223,7 +223,7 @@ const PainelAlertas = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-destructive/10 rounded-lg">
             <AlertTriangle className="w-6 h-6 text-destructive" />
@@ -235,6 +235,12 @@ const PainelAlertas = () => {
             </p>
           </div>
         </div>
+        <Link to={`/painel/${prefeituraId}/alertas/historico`}>
+          <Button variant="outline" className="gap-2">
+            <History className="w-4 h-4" />
+            Histórico de Alertas
+          </Button>
+        </Link>
       </div>
 
       {/* Stats */}
