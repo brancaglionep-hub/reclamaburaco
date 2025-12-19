@@ -19,6 +19,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface OutletContext {
   prefeituraId: string;
@@ -30,6 +38,8 @@ interface Bairro {
   ativo: boolean;
 }
 
+const ITEMS_PER_PAGE = 10;
+
 const PainelBairros = () => {
   const { prefeituraId } = useOutletContext<OutletContext>();
   const [bairros, setBairros] = useState<Bairro[]>([]);
@@ -37,6 +47,7 @@ const PainelBairros = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBairro, setEditingBairro] = useState<Bairro | null>(null);
   const [nome, setNome] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchBairros = async () => {
     const { data, error } = await supabase
@@ -56,6 +67,17 @@ const PainelBairros = () => {
       fetchBairros();
     }
   }, [prefeituraId]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(bairros.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedBairros = bairros.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
 
   const handleOpenDialog = (bairro?: Bairro) => {
     if (bairro) {
@@ -132,6 +154,10 @@ const PainelBairros = () => {
     } else {
       toast({ title: "Bairro excluído!" });
       fetchBairros();
+      // Adjust current page if needed
+      if (paginatedBairros.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1);
+      }
     }
   };
 
@@ -166,14 +192,14 @@ const PainelBairros = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {bairros.length === 0 ? (
+            {paginatedBairros.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                   Nenhum bairro cadastrado
                 </TableCell>
               </TableRow>
             ) : (
-              bairros.map((bairro) => (
+              paginatedBairros.map((bairro) => (
                 <TableRow key={bairro.id}>
                   <TableCell className="font-medium">{bairro.nome}</TableCell>
                   <TableCell>
@@ -219,6 +245,42 @@ const PainelBairros = () => {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {startIndex + 1} a {Math.min(startIndex + ITEMS_PER_PAGE, bairros.length)} de {bairros.length} bairros
+          </p>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <PaginationItem key={page}>
+                  <PaginationLink
+                    onClick={() => handlePageChange(page)}
+                    isActive={currentPage === page}
+                    className="cursor-pointer"
+                  >
+                    {page}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
