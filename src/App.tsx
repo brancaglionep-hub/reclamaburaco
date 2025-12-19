@@ -27,6 +27,9 @@ import PainelReclamacaoDetalhe from "./pages/painel/PainelReclamacaoDetalhe";
 import PainelBairros from "./pages/painel/PainelBairros";
 import PainelCategorias from "./pages/painel/PainelCategorias";
 import PainelConfiguracoes from "./pages/painel/PainelConfiguracoes";
+import PainelAlertas from "./pages/painel/PainelAlertas";
+import PainelAlertasHistorico from "./pages/painel/PainelAlertasHistorico";
+import PainelCidadaos from "./pages/painel/PainelCidadaos";
 import PainelAvaliacoes from "./pages/painel/PainelAvaliacoes";
 
 const Avaliar = lazy(() => import("./pages/Avaliar"));
@@ -79,6 +82,9 @@ const App = () => (
               <Route path="reclamacoes" element={<PainelReclamacoes />} />
               <Route path="reclamacoes/:id" element={<PainelReclamacaoDetalhe />} />
               <Route path="avaliacoes" element={<PainelAvaliacoes />} />
+              <Route path="alertas" element={<PainelAlertas />} />
+              <Route path="alertas/historico" element={<PainelAlertasHistorico />} />
+              <Route path="cidadaos" element={<PainelCidadaos />} />
               <Route path="bairros" element={<PainelBairros />} />
               <Route path="categorias" element={<PainelCategorias />} />
               <Route path="configuracoes" element={<PainelConfiguracoes />} />
