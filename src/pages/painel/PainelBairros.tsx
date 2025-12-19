@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,7 @@ const PainelBairros = () => {
   const [editingBairro, setEditingBairro] = useState<Bairro | null>(null);
   const [nome, setNome] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchBairros = async () => {
     const { data, error } = await supabase
@@ -68,10 +69,18 @@ const PainelBairros = () => {
     }
   }, [prefeituraId]);
 
-  // Pagination logic
-  const totalPages = Math.ceil(bairros.length / ITEMS_PER_PAGE);
+  // Filter and pagination logic
+  const filteredBairros = bairros.filter((bairro) =>
+    bairro.nome.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const totalPages = Math.ceil(filteredBairros.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedBairros = bairros.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const paginatedBairros = filteredBairros.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -182,6 +191,17 @@ const PainelBairros = () => {
         </Button>
       </div>
 
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar bairro..."
+          value={searchTerm}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         <Table>
           <TableHeader>
@@ -195,7 +215,7 @@ const PainelBairros = () => {
             {paginatedBairros.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                  Nenhum bairro cadastrado
+                  {searchTerm ? "Nenhum bairro encontrado" : "Nenhum bairro cadastrado"}
                 </TableCell>
               </TableRow>
             ) : (
@@ -250,7 +270,7 @@ const PainelBairros = () => {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Mostrando {startIndex + 1} a {Math.min(startIndex + ITEMS_PER_PAGE, bairros.length)} de {bairros.length} bairros
+            Mostrando {startIndex + 1} a {Math.min(startIndex + ITEMS_PER_PAGE, filteredBairros.length)} de {filteredBairros.length} bairros
           </p>
           <Pagination>
             <PaginationContent>
