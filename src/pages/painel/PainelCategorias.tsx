@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, GripVertical } from "lucide-react";
+import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, GripVertical, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+
+const ITEMS_PER_PAGE = 10;
 
 interface OutletContext {
   prefeituraId: string;
@@ -36,6 +46,8 @@ const PainelCategorias = () => {
   const [formData, setFormData] = useState({ nome: "", descricao: "" });
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchCategorias = async () => {
     const { data, error } = await supabase
@@ -206,6 +218,25 @@ const PainelCategorias = () => {
     }
   };
 
+  // Filter and pagination logic
+  const filteredCategorias = categorias.filter((cat) =>
+    cat.nome.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const totalPages = Math.ceil(filteredCategorias.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedCategorias = filteredCategorias.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -229,13 +260,24 @@ const PainelCategorias = () => {
         </Button>
       </div>
 
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar categoria..."
+          value={searchTerm}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
       <div className="space-y-2">
-        {categorias.length === 0 ? (
+        {paginatedCategorias.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground bg-card rounded-xl border border-border">
-            Nenhuma categoria cadastrada
+            {searchTerm ? "Nenhuma categoria encontrada" : "Nenhuma categoria cadastrada"}
           </div>
         ) : (
-          categorias.map((categoria) => (
+          paginatedCategorias.map((categoria) => (
             <div
               key={categoria.id}
               draggable
@@ -308,6 +350,42 @@ const PainelCategorias = () => {
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {startIndex + 1} a {Math.min(startIndex + ITEMS_PER_PAGE, filteredCategorias.length)} de {filteredCategorias.length} categorias
+          </p>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <PaginationItem key={page}>
+                  <PaginationLink
+                    onClick={() => handlePageChange(page)}
+                    isActive={currentPage === page}
+                    className="cursor-pointer"
+                  >
+                    {page}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>

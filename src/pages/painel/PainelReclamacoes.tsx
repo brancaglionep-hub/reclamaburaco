@@ -19,6 +19,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { toast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 
@@ -72,12 +80,15 @@ const formatarTempoEspera = (dias: number): string => {
   return `${dias} dias`;
 };
 
+const ITEMS_PER_PAGE = 10;
+
 const PainelReclamacoes = () => {
   const { prefeituraId } = useOutletContext<OutletContext>();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [tempoFilter, setTempoFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { data: reclamacoes = [], isLoading } = useQuery({
     queryKey: ["painel-reclamacoes", prefeituraId, statusFilter],
@@ -136,6 +147,32 @@ const PainelReclamacoes = () => {
       default: return true;
     }
   });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredReclamacoes.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedReclamacoes = filteredReclamacoes.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleTempoFilterChange = (value: string) => {
+    setTempoFilter(value);
+    setCurrentPage(1);
+  };
 
   const exportToExcel = () => {
     const headers = [
@@ -345,11 +382,11 @@ const PainelReclamacoes = () => {
             <Input
               placeholder="Buscar por protocolo, rua ou bairro..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10"
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
             <SelectTrigger className="w-full sm:w-48">
               <Filter className="w-4 h-4 mr-2" />
               <SelectValue placeholder="Filtrar por status" />
@@ -363,7 +400,7 @@ const PainelReclamacoes = () => {
               <SelectItem value="arquivada">Arquivadas</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={tempoFilter} onValueChange={setTempoFilter}>
+          <Select value={tempoFilter} onValueChange={handleTempoFilterChange}>
             <SelectTrigger className="w-full sm:w-48">
               <Clock className="w-4 h-4 mr-2" />
               <SelectValue placeholder="Tempo de espera" />
@@ -401,14 +438,14 @@ const PainelReclamacoes = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredReclamacoes.length === 0 ? (
+            {paginatedReclamacoes.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   Nenhuma reclamação encontrada
                 </TableCell>
               </TableRow>
             ) : (
-              filteredReclamacoes.map((reclamacao) => {
+              paginatedReclamacoes.map((reclamacao) => {
                 const status = statusConfig[reclamacao.status] || statusConfig.recebida;
                 const dias = calcularTempoEspera(reclamacao.created_at, reclamacao.updated_at, reclamacao.status);
                 const tempoColor = dias > 30 ? "text-red-600" : dias > 15 ? "text-orange-600" : dias > 7 ? "text-yellow-600" : "text-muted-foreground";
@@ -456,6 +493,42 @@ const PainelReclamacoes = () => {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {startIndex + 1} a {Math.min(startIndex + ITEMS_PER_PAGE, filteredReclamacoes.length)} de {filteredReclamacoes.length} reclamações
+          </p>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <PaginationItem key={page}>
+                  <PaginationLink
+                    onClick={() => handlePageChange(page)}
+                    isActive={currentPage === page}
+                    className="cursor-pointer"
+                  >
+                    {page}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </div>
   );
 };

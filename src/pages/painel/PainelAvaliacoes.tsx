@@ -10,6 +10,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+
+const ITEMS_PER_PAGE = 10;
 
 interface OutletContext {
   prefeituraId: string;
@@ -33,6 +43,7 @@ const PainelAvaliacoes = () => {
   const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroEstrelas, setFiltroEstrelas] = useState<string>("todas");
+  const [currentPage, setCurrentPage] = useState(1);
   const [stats, setStats] = useState({
     total: 0,
     media: 0,
@@ -112,6 +123,22 @@ const PainelAvaliacoes = () => {
     </div>
   );
 
+  // Pagination logic
+  const totalPages = Math.ceil(avaliacoes.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedAvaliacoes = avaliacoes.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handleFiltroChange = (value: string) => {
+    setFiltroEstrelas(value);
+    setCurrentPage(1);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -167,7 +194,7 @@ const PainelAvaliacoes = () => {
           <Filter className="w-4 h-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">Filtrar por:</span>
         </div>
-        <Select value={filtroEstrelas} onValueChange={setFiltroEstrelas}>
+        <Select value={filtroEstrelas} onValueChange={handleFiltroChange}>
           <SelectTrigger className="w-48">
             <SelectValue />
           </SelectTrigger>
@@ -198,7 +225,7 @@ const PainelAvaliacoes = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {avaliacoes.map((avaliacao) => (
+          {paginatedAvaliacoes.map((avaliacao) => (
             <div
               key={avaliacao.id}
               className="bg-card rounded-xl border border-border p-6"
@@ -243,6 +270,42 @@ const PainelAvaliacoes = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {startIndex + 1} a {Math.min(startIndex + ITEMS_PER_PAGE, avaliacoes.length)} de {avaliacoes.length} avaliações
+          </p>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <PaginationItem key={page}>
+                  <PaginationLink
+                    onClick={() => handlePageChange(page)}
+                    isActive={currentPage === page}
+                    className="cursor-pointer"
+                  >
+                    {page}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
       )}
     </div>
