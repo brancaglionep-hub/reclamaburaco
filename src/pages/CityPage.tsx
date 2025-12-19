@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import ComplaintForm from "@/components/ComplaintForm";
 import ConsultaProtocolo from "@/components/ConsultaProtocolo";
+import WeatherWidget from "@/components/WeatherWidget";
 import heroImage from "@/assets/hero-street.png";
 
 interface Prefeitura {
@@ -127,6 +128,10 @@ const CityPage = () => {
             <div className="flex items-center gap-1.5">
               <p className="font-semibold text-sm sm:text-base">{prefeitura.nome}</p>
               <span className="text-xs sm:text-sm text-primary-foreground/70">| {prefeitura.estado || "SC"}</span>
+              <div className="hidden sm:block w-px h-4 bg-primary-foreground/30 mx-1" />
+              <div className="hidden sm:block">
+                <WeatherWidget cidade={prefeitura.cidade} estado={prefeitura.estado || "SC"} />
+              </div>
             </div>
           </div>
           {prefeitura.telefone_contato && (
