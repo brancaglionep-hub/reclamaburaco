@@ -165,6 +165,7 @@ const PainelReclamacaoDetalhe = () => {
               bairro: reclamacao.bairros?.nome || null,
               categoria: reclamacao.categorias?.nome || null,
               prefeitura_nome: prefeituraData?.nome || "Prefeitura",
+              prefeitura_id: prefeituraId,
               avaliacao_token: avaliacaoToken
             }
           });
