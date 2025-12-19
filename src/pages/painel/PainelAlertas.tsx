@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useOutletContext, Link } from "react-router-dom";
-import { AlertTriangle, Send, CloudRain, Droplets, Siren, Bell, Users, MapPin, History, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, Send, CloudRain, Droplets, Siren, Bell, Users, MapPin, History, CheckCircle2, Mail, MessageSquare, Smartphone, BellRing } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -48,7 +49,7 @@ interface Cidadao {
 }
 
 type TipoAlerta = 'enchente' | 'chuva_forte' | 'alagamento' | 'emergencia' | 'aviso_geral';
-type CanalEnvio = 'sms' | 'email' | 'push';
+type CanalEnvio = 'email';
 
 const tiposAlerta: { value: TipoAlerta; label: string; icon: typeof AlertTriangle }[] = [
   { value: 'enchente', label: 'Enchente', icon: Droplets },
@@ -58,10 +59,14 @@ const tiposAlerta: { value: TipoAlerta; label: string; icon: typeof AlertTriangl
   { value: 'aviso_geral', label: 'Aviso Geral', icon: Bell },
 ];
 
-const canaisEnvio: { value: CanalEnvio; label: string }[] = [
-  { value: 'sms', label: 'SMS' },
-  { value: 'email', label: 'Email' },
-  { value: 'push', label: 'Push Notification' },
+const canaisEnvio: { value: CanalEnvio; label: string; icon: typeof Mail; enabled: boolean }[] = [
+  { value: 'email', label: 'Email', icon: Mail, enabled: true },
+];
+
+const canaisEmBreve: { label: string; icon: typeof Mail }[] = [
+  { label: 'WhatsApp', icon: MessageSquare },
+  { label: 'SMS', icon: Smartphone },
+  { label: 'Push Notification', icon: BellRing },
 ];
 
 const PainelAlertas = () => {
@@ -424,25 +429,53 @@ const PainelAlertas = () => {
               {/* Canais */}
               <div className="space-y-2">
                 <Label>Canal de Envio *</Label>
-                <div className="flex flex-wrap gap-4 pt-2">
-                  {canaisEnvio.map((canal) => (
-                    <div key={canal.value} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={canal.value}
-                        checked={canais.includes(canal.value)}
-                        onCheckedChange={(checked) =>
-                          handleCanalChange(canal.value, checked as boolean)
-                        }
-                      />
-                      <label
-                        htmlFor={canal.value}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        {canal.label}
-                      </label>
-                    </div>
-                  ))}
-                </div>
+                <TooltipProvider>
+                  <div className="flex flex-wrap gap-4 pt-2">
+                    {/* Canais ativos */}
+                    {canaisEnvio.map((canal) => (
+                      <div key={canal.value} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={canal.value}
+                          checked={canais.includes(canal.value)}
+                          onCheckedChange={(checked) =>
+                            handleCanalChange(canal.value, checked as boolean)
+                          }
+                        />
+                        <label
+                          htmlFor={canal.value}
+                          className="text-sm font-medium leading-none cursor-pointer flex items-center gap-1.5"
+                        >
+                          <canal.icon className="w-4 h-4" />
+                          {canal.label}
+                        </label>
+                      </div>
+                    ))}
+                    
+                    {/* Canais em breve (desabilitados) */}
+                    {canaisEmBreve.map((canal) => (
+                      <Tooltip key={canal.label}>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center space-x-2 opacity-50 cursor-not-allowed">
+                            <Checkbox
+                              id={canal.label}
+                              disabled
+                              checked={false}
+                            />
+                            <label
+                              className="text-sm font-medium leading-none cursor-not-allowed flex items-center gap-1.5"
+                            >
+                              <canal.icon className="w-4 h-4" />
+                              {canal.label}
+                            </label>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Em breve</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </TooltipProvider>
               </div>
             </div>
 
