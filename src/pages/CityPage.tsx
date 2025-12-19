@@ -128,18 +128,17 @@ const CityPage = () => {
             <div className="flex items-center gap-1.5">
               <p className="font-semibold text-sm sm:text-base">{prefeitura.nome}</p>
               <span className="text-xs sm:text-sm text-primary-foreground/70">| {prefeitura.estado || "SC"}</span>
-              <div className="hidden sm:block w-px h-4 bg-primary-foreground/30 mx-1" />
-              <div className="hidden sm:block">
-                <WeatherWidget cidade={prefeitura.cidade} estado={prefeitura.estado || "SC"} />
-              </div>
             </div>
           </div>
-          {prefeitura.telefone_contato && (
-            <a href={`tel:${prefeitura.telefone_contato}`} className="hidden sm:flex items-center gap-2 text-sm">
-              <Phone className="w-4 h-4" />
-              {prefeitura.telefone_contato}
-            </a>
-          )}
+          <div className="flex items-center gap-4">
+            {prefeitura.telefone_contato && (
+              <a href={`tel:${prefeitura.telefone_contato}`} className="hidden sm:flex items-center gap-2 text-sm">
+                <Phone className="w-4 h-4" />
+                {prefeitura.telefone_contato}
+              </a>
+            )}
+            <WeatherWidget cidade={prefeitura.cidade} estado={prefeitura.estado || "SC"} />
+          </div>
         </div>
       </header>
 
