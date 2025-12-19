@@ -80,9 +80,12 @@ const WeatherWidget = ({ cidade, estado }: WeatherWidgetProps) => {
   }
 
   return (
-    <div className="flex items-center gap-1.5 text-primary-foreground/90">
+    <div className="flex items-center gap-1.5 text-primary-foreground/90 bg-primary-foreground/10 px-3 py-1.5 rounded-full">
+      <span className="text-sm font-medium">{cidade}</span>
       {getWeatherIcon(weather.weatherCode)}
-      <span className="text-sm font-medium">{weather.temperature}°C</span>
+      <span className="text-sm font-medium">
+        {weather.temperature > 0 ? "+" : ""}{weather.temperature}
+      </span>
     </div>
   );
 };
