@@ -65,7 +65,7 @@ async function sendEmail(to: string, subject: string, message: string, prefeitur
     `;
 
     const response = await resend.emails.send({
-      from: `Alertas ${prefeituraNome} <onboarding@resend.dev>`,
+      from: `Alertas ${prefeituraNome} <alertas@civitainfra.com.br>`,
       to: [to],
       subject: `🚨 ALERTA: ${subject}`,
       html: htmlContent,
