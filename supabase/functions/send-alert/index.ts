@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,12 +11,78 @@ const corsHeaders = {
 const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
 const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN");
 const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
-const twilioWhatsAppNumber = Deno.env.get("TWILIO_WHATSAPP_NUMBER");
+
+// Resend for email
+const resendApiKey = Deno.env.get("RESEND_API_KEY");
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 interface SendResult {
   success: boolean;
   error?: string;
   messageId?: string;
+}
+
+// Send Email via Resend
+async function sendEmail(to: string, subject: string, message: string, prefeituraNome: string): Promise<SendResult> {
+  if (!resend) {
+    console.log("[EMAIL] Resend not configured, skipping...");
+    return { success: false, error: "Resend não configurado" };
+  }
+
+  try {
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #dc2626; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9f9f9; padding: 20px; border: 1px solid #ddd; }
+          .footer { background: #333; color: white; padding: 15px; text-align: center; font-size: 12px; border-radius: 0 0 8px 8px; }
+          .alert-icon { font-size: 32px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="alert-icon">🚨</div>
+            <h1 style="margin: 10px 0 0 0;">ALERTA OFICIAL</h1>
+            <p style="margin: 5px 0 0 0;">${prefeituraNome}</p>
+          </div>
+          <div class="content">
+            <h2 style="color: #dc2626; margin-top: 0;">${subject}</h2>
+            <p>${message.replace(/\n/g, '<br>')}</p>
+          </div>
+          <div class="footer">
+            <p style="margin: 0;">Em caso de emergência ligue <strong>199</strong></p>
+            <p style="margin: 5px 0 0 0;">Mensagem oficial da ${prefeituraNome}</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const response = await resend.emails.send({
+      from: `Alertas ${prefeituraNome} <onboarding@resend.dev>`,
+      to: [to],
+      subject: `🚨 ALERTA: ${subject}`,
+      html: htmlContent,
+    });
+
+    if (response.error) {
+      console.error("[EMAIL] Resend error:", response.error);
+      return { success: false, error: response.error.message || "Erro ao enviar email" };
+    }
+
+    console.log("[EMAIL] Sent successfully:", response.data?.id);
+    return { success: true, messageId: response.data?.id };
+  } catch (error: unknown) {
+    console.error("[EMAIL] Error:", error);
+    const message = error instanceof Error ? error.message : "Erro desconhecido";
+    return { success: false, error: message };
+  }
 }
 
 // Send SMS via Twilio
@@ -26,7 +93,6 @@ async function sendSMS(to: string, message: string): Promise<SendResult> {
   }
 
   try {
-    // Format phone number - ensure it has country code
     let formattedPhone = to.replace(/\D/g, "");
     if (!formattedPhone.startsWith("55")) {
       formattedPhone = "55" + formattedPhone;
@@ -60,58 +126,6 @@ async function sendSMS(to: string, message: string): Promise<SendResult> {
     return { success: true, messageId: data.sid };
   } catch (error: unknown) {
     console.error("[SMS] Error:", error);
-    const message = error instanceof Error ? error.message : "Erro desconhecido";
-    return { success: false, error: message };
-  }
-}
-
-// Send WhatsApp via Twilio
-async function sendWhatsApp(to: string, message: string): Promise<SendResult> {
-  if (!twilioAccountSid || !twilioAuthToken || !twilioWhatsAppNumber) {
-    console.log("[WhatsApp] Twilio not configured, skipping...");
-    return { success: false, error: "Twilio WhatsApp não configurado" };
-  }
-
-  try {
-    // Format phone number - ensure it has country code
-    let formattedPhone = to.replace(/\D/g, "");
-    if (!formattedPhone.startsWith("55")) {
-      formattedPhone = "55" + formattedPhone;
-    }
-    formattedPhone = "whatsapp:+" + formattedPhone;
-
-    const url = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
-    const auth = btoa(`${twilioAccountSid}:${twilioAuthToken}`);
-
-    // Format WhatsApp from number
-    const fromWhatsApp = twilioWhatsAppNumber.startsWith("whatsapp:") 
-      ? twilioWhatsAppNumber 
-      : `whatsapp:${twilioWhatsAppNumber}`;
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Basic ${auth}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        From: fromWhatsApp,
-        To: formattedPhone,
-        Body: message,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("[WhatsApp] Twilio error:", data);
-      return { success: false, error: data.message || "Erro ao enviar WhatsApp" };
-    }
-
-    console.log("[WhatsApp] Sent successfully:", data.sid);
-    return { success: true, messageId: data.sid };
-  } catch (error: unknown) {
-    console.error("[WhatsApp] Error:", error);
     const message = error instanceof Error ? error.message : "Erro desconhecido";
     return { success: false, error: message };
   }
@@ -201,25 +215,32 @@ serve(async (req) => {
         let status: "enviado" | "erro" = "erro";
         let errorMessage: string | null = null;
 
-        // Check if citizen has phone number
-        if (!cidadao.telefone) {
-          console.log(`[${canal.toUpperCase()}] Cidadão ${cidadao.nome} sem telefone cadastrado`);
-          sendResult = { success: false, error: "Telefone não cadastrado" };
-        } else {
-          // Send based on channel
-          switch (canal) {
-            case "sms":
+        // Send based on channel
+        switch (canal) {
+          case "sms":
+            if (!cidadao.telefone) {
+              console.log(`[SMS] Cidadão ${cidadao.nome} sem telefone cadastrado`);
+              sendResult = { success: false, error: "Telefone não cadastrado" };
+            } else {
               sendResult = await sendSMS(cidadao.telefone, mensagemCompleta);
-              break;
-            case "whatsapp":
-              sendResult = await sendWhatsApp(cidadao.telefone, mensagemCompleta);
-              break;
-            case "push":
-              // Push notifications not implemented yet
-              console.log(`[PUSH] Push notification for ${cidadao.nome} - not implemented`);
-              sendResult = { success: false, error: "Push não implementado" };
-              break;
-          }
+            }
+            break;
+          case "email":
+            if (!cidadao.email) {
+              console.log(`[EMAIL] Cidadão ${cidadao.nome} sem email cadastrado`);
+              sendResult = { success: false, error: "Email não cadastrado" };
+            } else {
+              sendResult = await sendEmail(cidadao.email, alerta.titulo, alerta.mensagem, prefeituraNome);
+            }
+            break;
+          case "push":
+            console.log(`[PUSH] Push notification for ${cidadao.nome} - not implemented`);
+            sendResult = { success: false, error: "Push não implementado" };
+            break;
+          case "whatsapp":
+            console.log(`[WHATSAPP] WhatsApp for ${cidadao.nome} - temporarily disabled`);
+            sendResult = { success: false, error: "WhatsApp temporariamente desativado" };
+            break;
         }
 
         // Update status based on result
