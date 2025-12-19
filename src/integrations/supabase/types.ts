@@ -518,6 +518,69 @@ export type Database = {
           },
         ]
       }
+      upload_queue: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          error_message: string | null
+          file_name: string
+          file_size: number
+          file_type: string
+          id: string
+          prefeitura_id: string
+          reclamacao_id: string | null
+          retry_count: number | null
+          status: string
+          storage_path: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          file_name: string
+          file_size: number
+          file_type: string
+          id?: string
+          prefeitura_id: string
+          reclamacao_id?: string | null
+          retry_count?: number | null
+          status?: string
+          storage_path?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          id?: string
+          prefeitura_id?: string
+          reclamacao_id?: string | null
+          retry_count?: number | null
+          status?: string
+          storage_path?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upload_queue_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upload_queue_reclamacao_id_fkey"
+            columns: ["reclamacao_id"]
+            isOneToOne: false
+            referencedRelation: "reclamacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null
