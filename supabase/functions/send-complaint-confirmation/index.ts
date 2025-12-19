@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -16,6 +17,7 @@ interface ConfirmationRequest {
   bairro: string;
   categoria: string;
   prefeitura_nome: string;
+  prefeitura_id: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -31,10 +33,43 @@ const handler = async (req: Request): Promise<Response> => {
       rua,
       bairro,
       categoria,
-      prefeitura_nome
+      prefeitura_nome,
+      prefeitura_id
     }: ConfirmationRequest = await req.json();
 
     console.log("Sending complaint confirmation email to:", to_email);
+
+    // SECURITY: Validate required fields
+    if (!to_email || !protocolo || !prefeitura_id) {
+      console.error("Missing required fields");
+      return new Response(
+        JSON.stringify({ error: "Missing required fields" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // SECURITY: Verify the complaint exists and matches the provided data
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: complaint, error: complaintError } = await supabase
+      .from("reclamacoes")
+      .select("id, protocolo, email_cidadao, prefeitura_id")
+      .eq("protocolo", protocolo)
+      .eq("prefeitura_id", prefeitura_id)
+      .eq("email_cidadao", to_email)
+      .single();
+
+    if (complaintError || !complaint) {
+      console.error("Complaint verification failed:", complaintError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: complaint not found or email mismatch" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("Complaint verified, sending confirmation email for protocol:", protocolo);
 
     const htmlContent = `
       <!DOCTYPE html>

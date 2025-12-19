@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -19,6 +20,7 @@ interface StatusNotificationRequest {
   bairro: string | null;
   categoria: string | null;
   prefeitura_nome: string;
+  prefeitura_id: string;
   avaliacao_token: string | null;
 }
 
@@ -46,15 +48,78 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // SECURITY: Verify the caller is authenticated
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.error("Missing authorization header");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: missing authorization" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // Create client with user's token to verify their identity
+    const supabaseUserClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    // Verify user is authenticated
+    const { data: { user }, error: userError } = await supabaseUserClient.auth.getUser();
+    if (userError || !user) {
+      console.error("User verification failed:", userError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: invalid token" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("User authenticated:", user.id);
+
     const data: StatusNotificationRequest = await req.json();
     console.log("Processing notification for:", data.protocolo);
+
+    // Validate required fields
+    if (!data.email || !data.protocolo || !data.status_novo || !data.prefeitura_id) {
+      console.error("Missing required fields");
+      return new Response(
+        JSON.stringify({ error: "Missing required fields" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Use service role client for admin checks
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // SECURITY: Verify user is admin for this prefeitura
+    const { data: isAdmin } = await supabaseAdmin.rpc("is_prefeitura_admin", {
+      _user_id: user.id,
+      _prefeitura_id: data.prefeitura_id,
+    });
+
+    const { data: isSuperAdmin } = await supabaseAdmin.rpc("has_role", {
+      _user_id: user.id,
+      _role: "super_admin",
+    });
+
+    if (!isAdmin && !isSuperAdmin) {
+      console.error("User is not admin for prefeitura:", data.prefeitura_id);
+      return new Response(
+        JSON.stringify({ error: "Forbidden: user is not admin for this prefeitura" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("Admin verified, sending status notification email");
 
     const statusLabel = statusLabels[data.status_novo] || data.status_novo;
     const statusColor = statusColors[data.status_novo] || "#6b7280";
     const statusAnteriorLabel = statusLabels[data.status_anterior] || data.status_anterior;
     
     // Generate rating link if this is a resolved status
-    // Using Lovable preview URL until custom domain is configured
     const baseUrl = "https://id-preview--8455dae8-b314-4d87-9cf0-20d7e94cb18d.lovable.app";
     const ratingLink = data.avaliacao_token 
       ? `${baseUrl}/avaliar?token=${data.avaliacao_token}`
