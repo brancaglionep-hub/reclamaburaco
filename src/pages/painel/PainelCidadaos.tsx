@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Users, Plus, Pencil, Trash2, Bell, BellOff, Search } from "lucide-react";
+import { Users, Plus, Pencil, Trash2, Bell, BellOff, Search, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,7 @@ interface Cidadao {
   aceita_alertas: boolean;
   ativo: boolean;
   bairro: { nome: string } | null;
+  total_reclamacoes?: number;
 }
 
 const PainelCidadaos = () => {
@@ -71,7 +72,7 @@ const PainelCidadaos = () => {
 
   const fetchData = async () => {
     try {
-      const [cidadaosRes, bairrosRes] = await Promise.all([
+      const [cidadaosRes, bairrosRes, reclamacoesRes] = await Promise.all([
         supabase
           .from("cidadaos")
           .select(`
@@ -93,10 +94,27 @@ const PainelCidadaos = () => {
           .eq("prefeitura_id", prefeituraId)
           .eq("ativo", true)
           .order("nome"),
+        supabase
+          .from("reclamacoes")
+          .select("telefone_cidadao, email_cidadao")
+          .eq("prefeitura_id", prefeituraId),
       ]);
 
       if (cidadaosRes.data) {
-        setCidadaos(cidadaosRes.data as unknown as Cidadao[]);
+        const reclamacoes = reclamacoesRes.data || [];
+        const cidadaosComContagem = cidadaosRes.data.map((cidadao: any) => {
+          const total = reclamacoes.filter((r) => {
+            if (cidadao.telefone && r.telefone_cidadao) {
+              return r.telefone_cidadao === cidadao.telefone;
+            }
+            if (cidadao.email && r.email_cidadao) {
+              return r.email_cidadao === cidadao.email;
+            }
+            return false;
+          }).length;
+          return { ...cidadao, total_reclamacoes: total };
+        });
+        setCidadaos(cidadaosComContagem as unknown as Cidadao[]);
       }
       if (bairrosRes.data) {
         setBairros(bairrosRes.data);
@@ -282,6 +300,7 @@ const PainelCidadaos = () => {
                     <TableHead>Email</TableHead>
                     <TableHead>Telefone</TableHead>
                     <TableHead>Bairro</TableHead>
+                    <TableHead className="text-center">Reclamações</TableHead>
                     <TableHead className="text-center">Alertas</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -293,6 +312,12 @@ const PainelCidadaos = () => {
                       <TableCell>{cidadao.email || "-"}</TableCell>
                       <TableCell>{cidadao.telefone || "-"}</TableCell>
                       <TableCell>{cidadao.bairro?.nome || "-"}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="secondary" className="gap-1">
+                          <FileText className="w-3 h-3" />
+                          {cidadao.total_reclamacoes || 0}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-center">
                         <Button
                           variant="ghost"
