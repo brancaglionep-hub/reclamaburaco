@@ -26,7 +26,6 @@ interface StatusNotificationRequest {
 
 const statusLabels: Record<string, string> = {
   recebida: "Recebida",
-  em_analise: "Em Análise",
   em_andamento: "Em Andamento",
   resolvida: "Resolvida",
   arquivada: "Arquivada"
@@ -34,7 +33,6 @@ const statusLabels: Record<string, string> = {
 
 const statusColors: Record<string, string> = {
   recebida: "#3b82f6",
-  em_analise: "#eab308",
   em_andamento: "#f97316",
   resolvida: "#22c55e",
   arquivada: "#6b7280"
