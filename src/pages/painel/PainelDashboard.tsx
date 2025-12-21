@@ -2,13 +2,22 @@ import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { 
   FileText, Clock, CheckCircle2, AlertCircle, TrendingUp, Eye, 
-  AlertTriangle, Timer, Star, Zap, LayoutDashboard
+  AlertTriangle, Timer, Star, Zap, LayoutDashboard, Info
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, LineChart, Line, Legend, AreaChart, Area 
@@ -436,15 +445,88 @@ const PainelDashboard = () => {
       </div>
 
       {/* Stats Cards - Linha 2: SLA */}
-      <div className="grid grid-cols-3 lg:grid-cols-4 gap-4">
-        <Card className="border-green-500/30 bg-green-500/5">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-green-700">🟢 No Prazo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-green-600">{stats.slaNoPrazo}</p>
-          </CardContent>
-        </Card>
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-medium text-muted-foreground">Indicadores de SLA</h3>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6">
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Timer className="h-5 w-5" />
+                  O que é SLA?
+                </DialogTitle>
+                <DialogDescription>
+                  Entenda os indicadores de prazo do seu painel
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 text-sm">
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <p className="font-medium mb-2">SLA (Service Level Agreement)</p>
+                  <p className="text-muted-foreground">
+                    É o prazo máximo que a prefeitura tem para resolver uma reclamação. 
+                    O prazo configurado atualmente é de <strong>{stats.slaPadraoDias} dias</strong>.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 p-3 rounded-lg border border-green-500/30 bg-green-500/5">
+                    <span className="text-lg">🟢</span>
+                    <div>
+                      <p className="font-medium text-green-700">No Prazo</p>
+                      <p className="text-muted-foreground text-xs">
+                        Reclamações abertas que ainda estão dentro do prazo estipulado. Tudo certo!
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5">
+                    <span className="text-lg">🟡</span>
+                    <div>
+                      <p className="font-medium text-yellow-700">Perto do Vencimento</p>
+                      <p className="text-muted-foreground text-xs">
+                        Reclamações que já atingiram 80% do prazo. Atenção redobrada para não estourar o SLA!
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-3 rounded-lg border border-red-500/30 bg-red-500/5">
+                    <span className="text-lg">🔴</span>
+                    <div>
+                      <p className="font-medium text-red-700">SLA Vencido</p>
+                      <p className="text-muted-foreground text-xs">
+                        Reclamações que ultrapassaram o prazo máximo. Essas são prioridade máxima e 
+                        impactam negativamente a nota da gestão.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                  <p className="font-medium text-blue-700 mb-1">💡 Dica</p>
+                  <p className="text-muted-foreground text-xs">
+                    O prazo do SLA pode ser configurado em <strong>Configurações → SLA e Prazos</strong>. 
+                    Você também pode definir alertas automáticos quando reclamações estiverem perto de vencer.
+                  </p>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+        
+        <div className="grid grid-cols-3 lg:grid-cols-4 gap-4">
+          <Card className="border-green-500/30 bg-green-500/5">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-green-700">🟢 No Prazo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-green-600">{stats.slaNoPrazo}</p>
+            </CardContent>
+          </Card>
 
         <Card className="border-yellow-500/30 bg-yellow-500/5">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -473,6 +555,7 @@ const PainelDashboard = () => {
             <p className="text-2xl font-bold">{stats.doMes}</p>
           </CardContent>
         </Card>
+        </div>
       </div>
 
       {/* Gráficos - Apenas no modo completo ou executivo simplificado */}
