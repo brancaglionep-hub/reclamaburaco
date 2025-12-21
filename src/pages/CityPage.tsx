@@ -8,6 +8,7 @@ import ComplaintForm from "@/components/ComplaintForm";
 import ConsultaProtocolo from "@/components/ConsultaProtocolo";
 import WeatherWidget from "@/components/WeatherWidget";
 import heroImage from "@/assets/hero-street.png";
+import { usePrefeituraConfig } from "@/hooks/usePrefeituraConfig";
 
 interface Prefeitura {
   id: string;
@@ -33,6 +34,9 @@ const CityPage = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showConsulta, setShowConsulta] = useState(false);
+
+  // Carrega configurações da prefeitura
+  const { config: prefeituraConfig } = usePrefeituraConfig(prefeitura?.id);
 
   useEffect(() => {
     const fetchPrefeitura = async () => {
@@ -99,7 +103,14 @@ const CityPage = () => {
   }
 
   if (showForm) {
-    return <ComplaintForm onClose={() => setShowForm(false)} prefeituraId={prefeitura.id} bairroId={bairroId} />;
+    return (
+      <ComplaintForm 
+        onClose={() => setShowForm(false)} 
+        prefeituraId={prefeitura.id} 
+        bairroId={bairroId}
+        config={prefeituraConfig}
+      />
+    );
   }
 
   if (showConsulta) {
