@@ -902,9 +902,9 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId, config
             ) : (
               <button
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !lgpdAceito}
                 className="btn-hero w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ background: "var(--gradient-success)" }}
+                style={{ background: lgpdAceito ? "var(--gradient-success)" : undefined }}
               >
                 {isSubmitting ? (
                   <>
