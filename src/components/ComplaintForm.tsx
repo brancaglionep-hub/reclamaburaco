@@ -364,7 +364,8 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
             rua: formData.rua,
             bairro: bairroNome,
             categoria: categoriaNome,
-            prefeitura_nome: `Prefeitura Municipal de ${prefeituraCidade}`
+            prefeitura_nome: `Prefeitura Municipal de ${prefeituraCidade}`,
+            prefeitura_id: prefeituraId
           }
         });
       } catch (emailError) {
