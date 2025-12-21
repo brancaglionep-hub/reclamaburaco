@@ -363,9 +363,31 @@ const PainelCidadaos = () => {
     fetchCidadaoDetalhes(cidadao);
   };
 
+  const validateEmail = (emailValue: string): boolean => {
+    if (!emailValue.trim()) return true; // opcional
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue);
+  };
+
+  const validatePhone = (phoneValue: string): boolean => {
+    if (!phoneValue.trim()) return true; // opcional
+    // Aceita formatos: (XX) XXXXX-XXXX, (XX) XXXX-XXXX, ou apenas números
+    const cleaned = phoneValue.replace(/\D/g, '');
+    return cleaned.length >= 10 && cleaned.length <= 11;
+  };
+
   const handleSave = async () => {
     if (!nome.trim()) {
       toast({ title: "Erro", description: "Informe o nome do cidadão", variant: "destructive" });
+      return;
+    }
+
+    if (email.trim() && !validateEmail(email)) {
+      toast({ title: "Erro", description: "Email inválido. Use o formato: exemplo@email.com", variant: "destructive" });
+      return;
+    }
+
+    if (telefone.trim() && !validatePhone(telefone)) {
+      toast({ title: "Erro", description: "Telefone inválido. Use 10 ou 11 dígitos (DDD + número)", variant: "destructive" });
       return;
     }
 
