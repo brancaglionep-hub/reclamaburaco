@@ -1,16 +1,8 @@
 import { useState } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
-import { Search, Eye, Clock, CheckCircle2, AlertCircle, Filter, Printer, Download } from "lucide-react";
+import { Eye, Printer, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -30,55 +22,16 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 
+import { Reclamacao, ReclamacaoComSla, statusConfig, slaConfig, SLA_LIMITE_DIAS } from "@/components/painel/reclamacoes/types";
+import { processarReclamacoes, ordenarPorUrgencia, formatarTempoEspera } from "@/components/painel/reclamacoes/utils";
+import { SlaBadge } from "@/components/painel/reclamacoes/SlaBadge";
+import { RecorrenciaBadge } from "@/components/painel/reclamacoes/RecorrenciaBadge";
+import { AcoesRapidas } from "@/components/painel/reclamacoes/AcoesRapidas";
+import { FiltrosAvancados } from "@/components/painel/reclamacoes/FiltrosAvancados";
+
 interface OutletContext {
   prefeituraId: string;
 }
-
-interface Reclamacao {
-  id: string;
-  protocolo: string;
-  status: string;
-  rua: string;
-  created_at: string;
-  updated_at: string;
-  resposta_prefeitura: string | null;
-  nome_cidadao: string;
-  email_cidadao: string;
-  telefone_cidadao: string | null;
-  descricao: string;
-  bairros: { nome: string } | null;
-  categorias: { nome: string } | null;
-}
-
-const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
-  recebida: { label: "Recebida", color: "bg-blue-100 text-blue-700", icon: Clock },
-  em_analise: { label: "Em Análise", color: "bg-yellow-100 text-yellow-700", icon: AlertCircle },
-  em_andamento: { label: "Em Andamento", color: "bg-orange-100 text-orange-700", icon: Clock },
-  resolvida: { label: "Resolvida", color: "bg-green-100 text-green-700", icon: CheckCircle2 },
-  arquivada: { label: "Arquivada", color: "bg-gray-100 text-gray-700", icon: AlertCircle }
-};
-
-const calcularTempoEspera = (created_at: string, updated_at: string, status: string): number => {
-  const inicio = new Date(created_at);
-  inicio.setHours(0, 0, 0, 0);
-  
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  
-  const fimDate = new Date(updated_at);
-  fimDate.setHours(0, 0, 0, 0);
-  
-  const fim = (status === 'recebida' || fimDate.getTime() === inicio.getTime()) ? hoje : fimDate;
-  
-  const diffMs = fim.getTime() - inicio.getTime();
-  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
-};
-
-const formatarTempoEspera = (dias: number): string => {
-  if (dias === 0) return "Hoje";
-  if (dias === 1) return "1 dia";
-  return `${dias} dias`;
-};
 
 const ITEMS_PER_PAGE = 10;
 
@@ -88,9 +41,12 @@ const PainelReclamacoes = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [tempoFilter, setTempoFilter] = useState<string>("all");
+  const [slaFilter, setSlaFilter] = useState<string>("all");
+  const [categoriaFilter, setCategoriaFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const { data: reclamacoes = [], isLoading } = useQuery({
+  // Buscar reclamações
+  const { data: reclamacoes = [], isLoading, refetch } = useQuery({
     queryKey: ["painel-reclamacoes", prefeituraId, statusFilter],
     queryFn: async () => {
       let query = supabase
@@ -107,11 +63,11 @@ const PainelReclamacoes = () => {
           email_cidadao,
           telefone_cidadao,
           descricao,
+          categoria_id,
           bairros (nome),
-          categorias (nome)
+          categorias (nome, icone)
         `)
-        .eq("prefeitura_id", prefeituraId)
-        .order("created_at", { ascending: false });
+        .eq("prefeitura_id", prefeituraId);
 
       if (statusFilter !== "all") {
         query = query.eq("status", statusFilter as any);
@@ -123,35 +79,65 @@ const PainelReclamacoes = () => {
       return (data || []) as Reclamacao[];
     },
     enabled: !!prefeituraId,
-    staleTime: 1000 * 60, // 1 minute
+    staleTime: 1000 * 60,
   });
 
-  const filteredReclamacoes = reclamacoes.filter(r => {
+  // Buscar categorias para o filtro
+  const { data: categorias = [] } = useQuery({
+    queryKey: ["categorias-filtro", prefeituraId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("categorias")
+        .select("id, nome")
+        .or(`prefeitura_id.eq.${prefeituraId},global.eq.true`)
+        .eq("ativo", true)
+        .order("nome");
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!prefeituraId,
+  });
+
+  // Processar reclamações com SLA e recorrência
+  const reclamacoesProcessadas = processarReclamacoes(reclamacoes);
+  
+  // Filtrar reclamações
+  const filteredReclamacoes = reclamacoesProcessadas.filter(r => {
+    // Busca por texto
     const matchesSearch = r.protocolo.toLowerCase().includes(search.toLowerCase()) ||
       r.rua.toLowerCase().includes(search.toLowerCase()) ||
       r.bairros?.nome.toLowerCase().includes(search.toLowerCase());
     
     if (!matchesSearch) return false;
 
+    // Filtro por SLA
+    if (slaFilter !== "all" && r.slaStatus !== slaFilter) return false;
+
+    // Filtro por categoria
+    if (categoriaFilter !== "all" && r.categoria_id !== categoriaFilter) return false;
+
+    // Filtro por tempo
     if (tempoFilter === "all") return true;
 
-    const dias = calcularTempoEspera(r.created_at, r.updated_at, r.status);
-    
     switch (tempoFilter) {
-      case "hoje": return dias === 0;
-      case "1-3": return dias >= 1 && dias <= 3;
-      case "4-7": return dias >= 4 && dias <= 7;
-      case "8-15": return dias >= 8 && dias <= 15;
-      case "16-30": return dias >= 16 && dias <= 30;
-      case "30+": return dias > 30;
+      case "hoje": return r.diasEspera === 0;
+      case "1-3": return r.diasEspera >= 1 && r.diasEspera <= 3;
+      case "4-7": return r.diasEspera >= 4 && r.diasEspera <= 7;
+      case "8-15": return r.diasEspera >= 8 && r.diasEspera <= 15;
+      case "16-30": return r.diasEspera >= 16 && r.diasEspera <= 30;
+      case "30+": return r.diasEspera > 30;
       default: return true;
     }
   });
 
+  // Ordenar por urgência
+  const sortedReclamacoes = ordenarPorUrgencia(filteredReclamacoes);
+
   // Pagination logic
-  const totalPages = Math.ceil(filteredReclamacoes.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(sortedReclamacoes.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedReclamacoes = filteredReclamacoes.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const paginatedReclamacoes = sortedReclamacoes.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -159,18 +145,8 @@ const PainelReclamacoes = () => {
     }
   };
 
-  const handleSearchChange = (value: string) => {
-    setSearch(value);
-    setCurrentPage(1);
-  };
-
-  const handleStatusFilterChange = (value: string) => {
-    setStatusFilter(value);
-    setCurrentPage(1);
-  };
-
-  const handleTempoFilterChange = (value: string) => {
-    setTempoFilter(value);
+  const handleFilterChange = (setter: (value: string) => void) => (value: string) => {
+    setter(value);
     setCurrentPage(1);
   };
 
@@ -182,17 +158,18 @@ const PainelReclamacoes = () => {
       "Telefone",
       "Bairro",
       "Rua",
-      "Tipo Problema",
+      "Categoria",
       "Descrição",
       "Status",
+      "SLA",
+      "Dias em Aberto",
       "Data Registro",
       "Última Atualização",
-      "Tempo de Espera (dias)",
+      "Recorrente",
       "Resposta Prefeitura"
     ];
 
-    const rows = filteredReclamacoes.map(r => {
-      const dias = calcularTempoEspera(r.created_at, r.updated_at, r.status);
+    const rows = sortedReclamacoes.map(r => {
       return [
         r.protocolo,
         r.nome_cidadao,
@@ -203,9 +180,11 @@ const PainelReclamacoes = () => {
         r.categorias?.nome || "",
         r.descricao?.replace(/[\n\r]/g, " ") || "",
         statusConfig[r.status]?.label || r.status,
+        slaConfig[r.slaStatus]?.label || "",
+        r.diasEspera.toString(),
         new Date(r.created_at).toLocaleDateString("pt-BR"),
         new Date(r.updated_at).toLocaleDateString("pt-BR"),
-        dias.toString(),
+        r.isRecorrente ? "Sim" : "Não",
         r.resposta_prefeitura?.replace(/[\n\r]/g, " ") || ""
       ];
     });
@@ -359,6 +338,13 @@ const PainelReclamacoes = () => {
     }
   };
 
+  // Estatísticas de SLA
+  const stats = {
+    vencidos: reclamacoesProcessadas.filter(r => r.slaStatus === 'vencido').length,
+    proximos: reclamacoesProcessadas.filter(r => r.slaStatus === 'proximo').length,
+    noPrazo: reclamacoesProcessadas.filter(r => r.slaStatus === 'dentro').length,
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -369,57 +355,58 @@ const PainelReclamacoes = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Reclamações</h1>
-        <p className="text-muted-foreground mt-1">Gerencie as reclamações recebidas</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Reclamações</h1>
+          <p className="text-muted-foreground mt-1">Gerencie as reclamações recebidas</p>
+        </div>
+        
+        {/* Cards de resumo SLA */}
+        <div className="flex gap-3">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200">
+            <span className="text-lg">🔴</span>
+            <div>
+              <div className="text-lg font-bold text-red-700">{stats.vencidos}</div>
+              <div className="text-xs text-red-600">Vencidos</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-50 border border-yellow-200">
+            <span className="text-lg">🟡</span>
+            <div>
+              <div className="text-lg font-bold text-yellow-700">{stats.proximos}</div>
+              <div className="text-xs text-yellow-600">Próximos</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 border border-green-200">
+            <span className="text-lg">🟢</span>
+            <div>
+              <div className="text-lg font-bold text-green-700">{stats.noPrazo}</div>
+              <div className="text-xs text-green-600">No prazo</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por protocolo, rua ou bairro..."
-              value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-            <SelectTrigger className="w-full sm:w-48">
-              <Filter className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="Filtrar por status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os status</SelectItem>
-              <SelectItem value="recebida">Recebidas</SelectItem>
-              <SelectItem value="em_analise">Em Análise</SelectItem>
-              <SelectItem value="em_andamento">Em Andamento</SelectItem>
-              <SelectItem value="resolvida">Resolvidas</SelectItem>
-              <SelectItem value="arquivada">Arquivadas</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={tempoFilter} onValueChange={handleTempoFilterChange}>
-            <SelectTrigger className="w-full sm:w-48">
-              <Clock className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="Tempo de espera" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Qualquer tempo</SelectItem>
-              <SelectItem value="hoje">Hoje</SelectItem>
-              <SelectItem value="1-3">1-3 dias</SelectItem>
-              <SelectItem value="4-7">4-7 dias</SelectItem>
-              <SelectItem value="8-15">8-15 dias</SelectItem>
-              <SelectItem value="16-30">16-30 dias</SelectItem>
-              <SelectItem value="30+">Mais de 30 dias</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={exportToExcel} variant="outline" className="gap-2">
-            <Download className="w-4 h-4" />
-            Exportar Excel
-          </Button>
-        </div>
+      {/* Filtros */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <FiltrosAvancados
+          search={search}
+          onSearchChange={handleFilterChange(setSearch)}
+          statusFilter={statusFilter}
+          onStatusFilterChange={handleFilterChange(setStatusFilter)}
+          tempoFilter={tempoFilter}
+          onTempoFilterChange={handleFilterChange(setTempoFilter)}
+          slaFilter={slaFilter}
+          onSlaFilterChange={handleFilterChange(setSlaFilter)}
+          categoriaFilter={categoriaFilter}
+          onCategoriaFilterChange={handleFilterChange(setCategoriaFilter)}
+          categorias={categorias}
+          onExport={exportToExcel}
+        />
+        <Button onClick={exportToExcel} variant="outline" className="gap-2 shrink-0">
+          <Download className="w-4 h-4" />
+          Exportar
+        </Button>
       </div>
 
       {/* Table */}
@@ -427,44 +414,52 @@ const PainelReclamacoes = () => {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[100px]">SLA</TableHead>
               <TableHead>Protocolo</TableHead>
-              <TableHead>Bairro</TableHead>
-              <TableHead>Rua</TableHead>
-              <TableHead>Tipo</TableHead>
+              <TableHead>Categoria</TableHead>
+              <TableHead>Bairro / Rua</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Data</TableHead>
-              <TableHead>Tempo</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedReclamacoes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   Nenhuma reclamação encontrada
                 </TableCell>
               </TableRow>
             ) : (
               paginatedReclamacoes.map((reclamacao) => {
                 const status = statusConfig[reclamacao.status] || statusConfig.recebida;
-                const dias = calcularTempoEspera(reclamacao.created_at, reclamacao.updated_at, reclamacao.status);
-                const tempoColor = dias > 30 ? "text-red-600" : dias > 15 ? "text-orange-600" : dias > 7 ? "text-yellow-600" : "text-muted-foreground";
                 return (
-                  <TableRow key={reclamacao.id}>
-                    <TableCell className="font-mono text-sm">{reclamacao.protocolo}</TableCell>
-                    <TableCell>{reclamacao.bairros?.nome || "-"}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{reclamacao.rua}</TableCell>
-                    <TableCell>{reclamacao.categorias?.nome || "-"}</TableCell>
+                  <TableRow key={reclamacao.id} className={reclamacao.slaStatus === 'vencido' ? 'bg-red-50/50' : ''}>
                     <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${status.color}`}>
+                      <SlaBadge status={reclamacao.slaStatus} dias={reclamacao.diasEspera} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <span className="font-mono text-sm font-medium">{reclamacao.protocolo}</span>
+                        {reclamacao.isRecorrente && <RecorrenciaBadge />}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">{reclamacao.categorias?.nome || "-"}</span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{reclamacao.bairros?.nome || "-"}</span>
+                        <span className="text-xs text-muted-foreground truncate max-w-[200px]">{reclamacao.rua}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${status.bgClass} ${status.color}`}>
                         {status.label}
                       </span>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground text-sm">
                       {new Date(reclamacao.created_at).toLocaleDateString("pt-BR")}
-                    </TableCell>
-                    <TableCell className={`font-medium ${tempoColor}`}>
-                      {formatarTempoEspera(dias)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -484,6 +479,11 @@ const PainelReclamacoes = () => {
                         >
                           <Printer className="w-4 h-4" />
                         </Button>
+                        <AcoesRapidas
+                          reclamacaoId={reclamacao.id}
+                          statusAtual={reclamacao.status}
+                          onStatusChange={() => refetch()}
+                        />
                       </div>
                     </TableCell>
                   </TableRow>
@@ -498,7 +498,7 @@ const PainelReclamacoes = () => {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Mostrando {startIndex + 1} a {Math.min(startIndex + ITEMS_PER_PAGE, filteredReclamacoes.length)} de {filteredReclamacoes.length} reclamações
+            Mostrando {startIndex + 1} a {Math.min(startIndex + ITEMS_PER_PAGE, sortedReclamacoes.length)} de {sortedReclamacoes.length} reclamações
           </p>
           <Pagination>
             <PaginationContent>
@@ -508,17 +508,29 @@ const PainelReclamacoes = () => {
                   className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                 />
               </PaginationItem>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <PaginationItem key={page}>
-                  <PaginationLink
-                    onClick={() => handlePageChange(page)}
-                    isActive={currentPage === page}
-                    className="cursor-pointer"
-                  >
-                    {page}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                let page: number;
+                if (totalPages <= 5) {
+                  page = i + 1;
+                } else if (currentPage <= 3) {
+                  page = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  page = totalPages - 4 + i;
+                } else {
+                  page = currentPage - 2 + i;
+                }
+                return (
+                  <PaginationItem key={page}>
+                    <PaginationLink
+                      onClick={() => handlePageChange(page)}
+                      isActive={currentPage === page}
+                      className="cursor-pointer"
+                    >
+                      {page}
+                    </PaginationLink>
+                  </PaginationItem>
+                );
+              })}
               <PaginationItem>
                 <PaginationNext 
                   onClick={() => handlePageChange(currentPage + 1)}
@@ -529,6 +541,14 @@ const PainelReclamacoes = () => {
           </Pagination>
         </div>
       )}
+
+      {/* Legenda SLA */}
+      <div className="flex items-center gap-6 text-xs text-muted-foreground border-t pt-4">
+        <span className="font-medium">Legenda SLA (prazo: {SLA_LIMITE_DIAS} dias):</span>
+        <span className="flex items-center gap-1">🟢 No prazo</span>
+        <span className="flex items-center gap-1">🟡 Próximo do vencimento (10+ dias)</span>
+        <span className="flex items-center gap-1">🔴 Vencido (15+ dias)</span>
+      </div>
     </div>
   );
 };
