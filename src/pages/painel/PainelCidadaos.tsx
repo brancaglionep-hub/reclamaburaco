@@ -857,28 +857,6 @@ const PainelCidadaos = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
-                          {cidadao.telefone && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleContact('whatsapp', cidadao)}
-                              className="text-green-600"
-                              title="WhatsApp"
-                            >
-                              <MessageSquare className="w-4 h-4" />
-                            </Button>
-                          )}
-                          {cidadao.email && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleContact('email', cidadao)}
-                              className="text-blue-600"
-                              title="Email"
-                            >
-                              <Mail className="w-4 h-4" />
-                            </Button>
-                          )}
                           <Button
                             variant="ghost"
                             size="sm"
