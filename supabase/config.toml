@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.test-sms]
 verify_jwt = false
+
+[functions.send-alert]
+verify_jwt = false
+
+[functions.process-upload-queue]
+verify_jwt = false
