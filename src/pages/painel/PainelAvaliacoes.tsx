@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Star, MessageSquare, Calendar, Filter } from "lucide-react";
+import { Star, MessageSquare, Calendar, Filter, Download, TrendingUp, TrendingDown, AlertTriangle, Clock, MapPin, Tag, ThumbsUp, ThumbsDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,8 +18,12 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "@/hooks/use-toast";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from "recharts";
 
 const ITEMS_PER_PAGE = 10;
+const SLA_LIMITE_DIAS = 15;
 
 interface OutletContext {
   prefeituraId: string;
@@ -30,103 +34,190 @@ interface Avaliacao {
   estrelas: number;
   comentario: string | null;
   avaliado_em: string;
+  created_at: string;
+  reclamacao_id: string;
   reclamacoes: {
+    id: string;
     protocolo: string;
     rua: string;
     nome_cidadao: string;
-    bairros: { nome: string } | null;
+    status: string;
+    created_at: string;
+    updated_at: string;
+    bairro_id: string | null;
+    categoria_id: string | null;
+    bairros: { id: string; nome: string } | null;
+    categorias: { id: string; nome: string } | null;
   };
 }
 
+interface AvaliacaoProcessada extends Avaliacao {
+  diasResolucao: number;
+  slaEstourado: boolean;
+}
+
+const calcularDiasResolucao = (created_at: string, updated_at: string): number => {
+  const inicio = new Date(created_at);
+  const fim = new Date(updated_at);
+  return Math.floor((fim.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24));
+};
+
 const PainelAvaliacoes = () => {
   const { prefeituraId } = useOutletContext<OutletContext>();
-  const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filtroEstrelas, setFiltroEstrelas] = useState<string>("todas");
+  const [filtroBairro, setFiltroBairro] = useState<string>("todos");
+  const [filtroCategoria, setFiltroCategoria] = useState<string>("todas");
+  const [filtroSla, setFiltroSla] = useState<string>("todos");
   const [currentPage, setCurrentPage] = useState(1);
-  const [stats, setStats] = useState({
-    total: 0,
-    media: 0,
-    distribuicao: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
-  });
 
-  useEffect(() => {
-    const fetchAvaliacoes = async () => {
-      setLoading(true);
-
-      let query = supabase
+  // Buscar avaliações com dados completos da reclamação
+  const { data: avaliacoes = [], isLoading } = useQuery({
+    queryKey: ["painel-avaliacoes-completas", prefeituraId],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from("avaliacoes")
         .select(`
           id,
           estrelas,
           comentario,
           avaliado_em,
+          created_at,
+          reclamacao_id,
           reclamacoes (
+            id,
             protocolo,
             rua,
             nome_cidadao,
-            bairros (nome)
+            status,
+            created_at,
+            updated_at,
+            bairro_id,
+            categoria_id,
+            bairros (id, nome),
+            categorias (id, nome)
           )
         `)
         .eq("prefeitura_id", prefeituraId)
         .not("avaliado_em", "is", null)
         .order("avaliado_em", { ascending: false });
 
-      if (filtroEstrelas !== "todas") {
-        query = query.eq("estrelas", parseInt(filtroEstrelas));
-      }
+      if (error) throw error;
+      return (data || []) as Avaliacao[];
+    },
+    enabled: !!prefeituraId,
+  });
 
-      const { data, error } = await query;
-
-      if (!error && data) {
-        setAvaliacoes(data as any);
-      }
-
-      // Fetch stats
-      const { data: allData } = await supabase
-        .from("avaliacoes")
-        .select("estrelas")
+  // Buscar bairros e categorias para filtros
+  const { data: bairros = [] } = useQuery({
+    queryKey: ["bairros-filtro-avaliacoes", prefeituraId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("bairros")
+        .select("id, nome")
         .eq("prefeitura_id", prefeituraId)
-        .not("avaliado_em", "is", null);
+        .eq("ativo", true)
+        .order("nome");
+      return data || [];
+    },
+    enabled: !!prefeituraId,
+  });
 
-      if (allData) {
-        const total = allData.length;
-        const soma = allData.reduce((acc, a) => acc + a.estrelas, 0);
-        const media = total > 0 ? soma / total : 0;
-        const distribuicao = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-        allData.forEach((a) => {
-          distribuicao[a.estrelas as 1 | 2 | 3 | 4 | 5]++;
-        });
-        setStats({ total, media, distribuicao });
-      }
+  const { data: categorias = [] } = useQuery({
+    queryKey: ["categorias-filtro-avaliacoes", prefeituraId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("categorias")
+        .select("id, nome")
+        .or(`prefeitura_id.eq.${prefeituraId},global.eq.true`)
+        .eq("ativo", true)
+        .order("nome");
+      return data || [];
+    },
+    enabled: !!prefeituraId,
+  });
 
-      setLoading(false);
-    };
+  // Processar avaliações com dados de SLA
+  const avaliacoesProcessadas: AvaliacaoProcessada[] = avaliacoes.map(a => {
+    const diasResolucao = a.reclamacoes ? calcularDiasResolucao(a.reclamacoes.created_at, a.reclamacoes.updated_at) : 0;
+    const slaEstourado = diasResolucao > SLA_LIMITE_DIAS;
+    return { ...a, diasResolucao, slaEstourado };
+  });
 
-    if (prefeituraId) {
-      fetchAvaliacoes();
-    }
-  }, [prefeituraId, filtroEstrelas]);
+  // Aplicar filtros
+  const avaliacoesFiltradas = avaliacoesProcessadas.filter(a => {
+    if (filtroEstrelas !== "todas" && a.estrelas !== parseInt(filtroEstrelas)) return false;
+    if (filtroBairro !== "todos" && a.reclamacoes?.bairro_id !== filtroBairro) return false;
+    if (filtroCategoria !== "todas" && a.reclamacoes?.categoria_id !== filtroCategoria) return false;
+    if (filtroSla === "estourado" && !a.slaEstourado) return false;
+    if (filtroSla === "dentro" && a.slaEstourado) return false;
+    return true;
+  });
 
-  const renderStars = (count: number) => (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <Star
-          key={star}
-          className={`w-4 h-4 ${
-            star <= count
-              ? "text-yellow-400 fill-yellow-400"
-              : "text-gray-300"
-          }`}
-        />
-      ))}
-    </div>
-  );
+  // Calcular estatísticas
+  const stats = {
+    total: avaliacoesProcessadas.length,
+    media: avaliacoesProcessadas.length > 0 
+      ? avaliacoesProcessadas.reduce((acc, a) => acc + a.estrelas, 0) / avaliacoesProcessadas.length 
+      : 0,
+    positivas: avaliacoesProcessadas.filter(a => a.estrelas >= 4).length,
+    negativas: avaliacoesProcessadas.filter(a => a.estrelas <= 2).length,
+    neutras: avaliacoesProcessadas.filter(a => a.estrelas === 3).length,
+    percentPositivas: avaliacoesProcessadas.length > 0 
+      ? (avaliacoesProcessadas.filter(a => a.estrelas >= 4).length / avaliacoesProcessadas.length) * 100 
+      : 0,
+    percentNegativas: avaliacoesProcessadas.length > 0 
+      ? (avaliacoesProcessadas.filter(a => a.estrelas <= 2).length / avaliacoesProcessadas.length) * 100 
+      : 0,
+    tempoMedioPositivas: (() => {
+      const positivas = avaliacoesProcessadas.filter(a => a.estrelas >= 4);
+      if (positivas.length === 0) return 0;
+      return positivas.reduce((acc, a) => acc + a.diasResolucao, 0) / positivas.length;
+    })(),
+    distribuicao: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<number, number>,
+  };
 
-  // Pagination logic
-  const totalPages = Math.ceil(avaliacoes.length / ITEMS_PER_PAGE);
+  avaliacoesProcessadas.forEach(a => {
+    stats.distribuicao[a.estrelas]++;
+  });
+
+  // Categorias mais mal avaliadas
+  const categoriaStats = categorias.map(cat => {
+    const avaliacoesCat = avaliacoesProcessadas.filter(a => a.reclamacoes?.categoria_id === cat.id);
+    const media = avaliacoesCat.length > 0 
+      ? avaliacoesCat.reduce((acc, a) => acc + a.estrelas, 0) / avaliacoesCat.length 
+      : 0;
+    return { ...cat, media, total: avaliacoesCat.length };
+  }).filter(c => c.total > 0).sort((a, b) => a.media - b.media);
+
+  // Dados para gráfico de evolução mensal
+  const evolucaoMensal = (() => {
+    const meses: Record<string, { soma: number; count: number }> = {};
+    avaliacoesProcessadas.forEach(a => {
+      const data = new Date(a.avaliado_em);
+      const chave = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
+      if (!meses[chave]) meses[chave] = { soma: 0, count: 0 };
+      meses[chave].soma += a.estrelas;
+      meses[chave].count++;
+    });
+    return Object.entries(meses)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-6)
+      .map(([mes, dados]) => ({
+        mes: new Date(mes + '-01').toLocaleDateString('pt-BR', { month: 'short' }),
+        media: dados.count > 0 ? (dados.soma / dados.count) : 0,
+      }));
+  })();
+
+  // Dados para gráfico de categorias
+  const dadosCategorias = categoriaStats.slice(0, 5).map(c => ({
+    nome: c.nome.length > 15 ? c.nome.substring(0, 15) + '...' : c.nome,
+    media: c.media,
+  }));
+
+  // Pagination
+  const totalPages = Math.ceil(avaliacoesFiltradas.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedAvaliacoes = avaliacoes.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const paginatedAvaliacoes = avaliacoesFiltradas.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -134,150 +225,387 @@ const PainelAvaliacoes = () => {
     }
   };
 
-  const handleFiltroChange = (value: string) => {
-    setFiltroEstrelas(value);
+  const handleFilterChange = (setter: (value: string) => void) => (value: string) => {
+    setter(value);
     setCurrentPage(1);
   };
+
+  const exportToExcel = () => {
+    const headers = [
+      "Data Avaliação",
+      "Estrelas",
+      "Comentário",
+      "Protocolo",
+      "Categoria",
+      "Bairro",
+      "Rua",
+      "Cidadão",
+      "Dias Resolução",
+      "SLA",
+      "Status Reclamação"
+    ];
+
+    const rows = avaliacoesFiltradas.map(a => [
+      new Date(a.avaliado_em).toLocaleDateString("pt-BR"),
+      a.estrelas.toString(),
+      a.comentario?.replace(/[\n\r]/g, " ") || "",
+      a.reclamacoes?.protocolo || "",
+      a.reclamacoes?.categorias?.nome || "",
+      a.reclamacoes?.bairros?.nome || "",
+      a.reclamacoes?.rua || "",
+      a.reclamacoes?.nome_cidadao || "",
+      a.diasResolucao.toString(),
+      a.slaEstourado ? "Estourado" : "Dentro",
+      a.reclamacoes?.status || ""
+    ]);
+
+    const csvContent = [
+      headers.join(";"),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(";"))
+    ].join("\n");
+
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `avaliacoes_${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Avaliações exportadas com sucesso!" });
+  };
+
+  const renderStars = (count: number) => (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          className={`w-4 h-4 ${star <= count ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
+        />
+      ))}
+    </div>
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Avaliações</h1>
-        <p className="text-muted-foreground">Feedback dos cidadãos sobre os serviços</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Avaliações</h1>
+          <p className="text-muted-foreground">Feedback dos cidadãos sobre os serviços</p>
+        </div>
+        <Button onClick={exportToExcel} variant="outline" className="gap-2">
+          <Download className="w-4 h-4" />
+          Exportar
+        </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-card rounded-xl border border-border p-6">
-          <p className="text-sm text-muted-foreground mb-1">Total de Avaliações</p>
-          <p className="text-3xl font-bold text-foreground">{stats.total}</p>
-        </div>
-        <div className="bg-card rounded-xl border border-border p-6">
-          <p className="text-sm text-muted-foreground mb-1">Média Geral</p>
+      {/* Indicadores Principais */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 text-muted-foreground mb-1">
+            <Star className="w-4 h-4" />
+            <span className="text-sm">Nota Média</span>
+          </div>
           <div className="flex items-center gap-2">
-            <p className="text-3xl font-bold text-foreground">
-              {stats.media.toFixed(1)}
-            </p>
+            <span className="text-3xl font-bold text-foreground">{stats.media.toFixed(1)}</span>
             <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
           </div>
         </div>
-        <div className="bg-card rounded-xl border border-border p-6">
-          <p className="text-sm text-muted-foreground mb-2">Distribuição</p>
-          <div className="space-y-1">
-            {[5, 4, 3, 2, 1].map((star) => (
-              <div key={star} className="flex items-center gap-2 text-sm">
-                <span className="w-4 text-muted-foreground">{star}</span>
-                <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-yellow-400 rounded-full"
-                    style={{
-                      width: stats.total > 0
-                        ? `${(stats.distribuicao[star as 1 | 2 | 3 | 4 | 5] / stats.total) * 100}%`
-                        : "0%"
-                    }}
-                  />
-                </div>
-                <span className="w-8 text-right text-muted-foreground">
-                  {stats.distribuicao[star as 1 | 2 | 3 | 4 | 5]}
-                </span>
-              </div>
-            ))}
+
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 text-muted-foreground mb-1">
+            <ThumbsUp className="w-4 h-4" />
+            <span className="text-sm">Positivas (4-5)</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-green-600">{stats.percentPositivas.toFixed(0)}%</span>
+            <span className="text-sm text-muted-foreground">({stats.positivas})</span>
           </div>
         </div>
+
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 text-muted-foreground mb-1">
+            <ThumbsDown className="w-4 h-4" />
+            <span className="text-sm">Negativas (1-2)</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-red-600">{stats.percentNegativas.toFixed(0)}%</span>
+            <span className="text-sm text-muted-foreground">({stats.negativas})</span>
+          </div>
+        </div>
+
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 text-muted-foreground mb-1">
+            <Clock className="w-4 h-4" />
+            <span className="text-sm">Tempo Médio (4-5⭐)</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-foreground">{stats.tempoMedioPositivas.toFixed(0)}</span>
+            <span className="text-sm text-muted-foreground">dias</span>
+          </div>
+        </div>
+
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 text-muted-foreground mb-1">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="text-sm">Pior Categoria</span>
+          </div>
+          {categoriaStats[0] ? (
+            <div>
+              <span className="text-lg font-bold text-red-600 truncate block">{categoriaStats[0].nome}</span>
+              <span className="text-xs text-muted-foreground">{categoriaStats[0].media.toFixed(1)}⭐ ({categoriaStats[0].total} aval.)</span>
+            </div>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )}
+        </div>
       </div>
 
-      {/* Filter */}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Filtrar por:</span>
+      {/* Gráficos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Evolução Mensal */}
+        <div className="bg-card rounded-xl border border-border p-4">
+          <h3 className="text-sm font-medium text-foreground mb-4 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4" />
+            Evolução da Nota Média (últimos 6 meses)
+          </h3>
+          {evolucaoMensal.length > 0 ? (
+            <ResponsiveContainer width="100%" height={150}>
+              <LineChart data={evolucaoMensal}>
+                <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+                <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} />
+                <Tooltip formatter={(value: number) => [value.toFixed(2), 'Média']} />
+                <Line type="monotone" dataKey="media" stroke="#eab308" strokeWidth={2} dot={{ fill: '#eab308' }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[150px] flex items-center justify-center text-muted-foreground">
+              Dados insuficientes
+            </div>
+          )}
         </div>
-        <Select value={filtroEstrelas} onValueChange={handleFiltroChange}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todas">Todas as avaliações</SelectItem>
-            <SelectItem value="5">⭐⭐⭐⭐⭐ 5 estrelas</SelectItem>
-            <SelectItem value="4">⭐⭐⭐⭐ 4 estrelas</SelectItem>
-            <SelectItem value="3">⭐⭐⭐ 3 estrelas</SelectItem>
-            <SelectItem value="2">⭐⭐ 2 estrelas</SelectItem>
-            <SelectItem value="1">⭐ 1 estrela</SelectItem>
-          </SelectContent>
-        </Select>
+
+        {/* Notas por Categoria */}
+        <div className="bg-card rounded-xl border border-border p-4">
+          <h3 className="text-sm font-medium text-foreground mb-4 flex items-center gap-2">
+            <Tag className="w-4 h-4" />
+            Nota Média por Categoria (top 5 piores)
+          </h3>
+          {dadosCategorias.length > 0 ? (
+            <ResponsiveContainer width="100%" height={150}>
+              <BarChart data={dadosCategorias} layout="vertical">
+                <XAxis type="number" domain={[0, 5]} tick={{ fontSize: 12 }} />
+                <YAxis dataKey="nome" type="category" tick={{ fontSize: 11 }} width={100} />
+                <Tooltip formatter={(value: number) => [value.toFixed(2), 'Média']} />
+                <Bar dataKey="media" radius={[0, 4, 4, 0]}>
+                  {dadosCategorias.map((entry, index) => (
+                    <Cell key={index} fill={entry.media <= 2 ? '#ef4444' : entry.media <= 3 ? '#f59e0b' : '#22c55e'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[150px] flex items-center justify-center text-muted-foreground">
+              Dados insuficientes
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Avaliacoes List */}
-      {loading ? (
-        <div className="flex items-center justify-center h-32">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : avaliacoes.length === 0 ? (
-        <div className="bg-card rounded-xl border border-border p-12 text-center">
-          <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">
-            {filtroEstrelas === "todas"
-              ? "Nenhuma avaliação recebida ainda"
-              : `Nenhuma avaliação com ${filtroEstrelas} estrela(s)`}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {paginatedAvaliacoes.map((avaliacao) => (
-            <div
-              key={avaliacao.id}
-              className="bg-card rounded-xl border border-border p-6"
-            >
-              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    {renderStars(avaliacao.estrelas)}
-                    <span className="text-sm font-medium text-foreground">
-                      {avaliacao.estrelas}/5
-                    </span>
-                  </div>
-                  
-                  {avaliacao.comentario && (
-                    <div className="flex items-start gap-2 mb-3">
-                      <MessageSquare className="w-4 h-4 text-muted-foreground mt-0.5" />
-                      <p className="text-foreground">{avaliacao.comentario}</p>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                    <span className="font-medium text-primary">
-                      {avaliacao.reclamacoes?.protocolo}
-                    </span>
-                    <span>{avaliacao.reclamacoes?.rua}</span>
-                    {avaliacao.reclamacoes?.bairros?.nome && (
-                      <span>{avaliacao.reclamacoes.bairros.nome}</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="w-4 h-4" />
-                  <span>
-                    {new Date(avaliacao.avaliado_em).toLocaleDateString("pt-BR", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric"
-                    })}
-                  </span>
-                </div>
+      {/* Distribuição de Estrelas */}
+      <div className="bg-card rounded-xl border border-border p-4">
+        <h3 className="text-sm font-medium text-foreground mb-3">Distribuição de Estrelas</h3>
+        <div className="flex gap-4">
+          {[5, 4, 3, 2, 1].map((star) => (
+            <div key={star} className="flex-1">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <span className="text-sm font-medium">{star}</span>
+                <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+              </div>
+              <div className="h-20 bg-muted rounded-lg overflow-hidden flex flex-col-reverse">
+                <div
+                  className={`w-full transition-all ${star >= 4 ? 'bg-green-500' : star === 3 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                  style={{
+                    height: stats.total > 0 ? `${(stats.distribuicao[star] / stats.total) * 100}%` : "0%"
+                  }}
+                />
+              </div>
+              <div className="text-center mt-1 text-xs text-muted-foreground">
+                {stats.distribuicao[star]}
               </div>
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Filtros:</span>
+        </div>
+        
+        <Select value={filtroEstrelas} onValueChange={handleFilterChange(setFiltroEstrelas)}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Estrelas" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas notas</SelectItem>
+            <SelectItem value="5">⭐⭐⭐⭐⭐ 5</SelectItem>
+            <SelectItem value="4">⭐⭐⭐⭐ 4</SelectItem>
+            <SelectItem value="3">⭐⭐⭐ 3</SelectItem>
+            <SelectItem value="2">⭐⭐ 2</SelectItem>
+            <SelectItem value="1">⭐ 1</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={filtroBairro} onValueChange={handleFilterChange(setFiltroBairro)}>
+          <SelectTrigger className="w-44">
+            <MapPin className="w-4 h-4 mr-1" />
+            <SelectValue placeholder="Bairro" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos bairros</SelectItem>
+            {bairros.map(b => (
+              <SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={filtroCategoria} onValueChange={handleFilterChange(setFiltroCategoria)}>
+          <SelectTrigger className="w-44">
+            <Tag className="w-4 h-4 mr-1" />
+            <SelectValue placeholder="Categoria" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas categorias</SelectItem>
+            {categorias.map(c => (
+              <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={filtroSla} onValueChange={handleFilterChange(setFiltroSla)}>
+          <SelectTrigger className="w-40">
+            <Clock className="w-4 h-4 mr-1" />
+            <SelectValue placeholder="SLA" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos SLA</SelectItem>
+            <SelectItem value="estourado">🔴 SLA estourado</SelectItem>
+            <SelectItem value="dentro">🟢 Dentro do SLA</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Lista de Avaliações */}
+      {avaliacoesFiltradas.length === 0 ? (
+        <div className="bg-card rounded-xl border border-border p-12 text-center">
+          <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">Nenhuma avaliação encontrada com os filtros aplicados</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {paginatedAvaliacoes.map((avaliacao) => {
+            const isNegativa = avaliacao.estrelas <= 2;
+            return (
+              <div
+                key={avaliacao.id}
+                className={`bg-card rounded-xl border p-4 ${isNegativa ? 'border-red-300 bg-red-50/30' : 'border-border'}`}
+              >
+                <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                  <div className="flex-1 space-y-3">
+                    {/* Cabeçalho com estrelas e badges */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      {renderStars(avaliacao.estrelas)}
+                      <span className="text-sm font-medium text-foreground">{avaliacao.estrelas}/5</span>
+                      
+                      {/* Badges */}
+                      {isNegativa && (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                          ⚠️ Atenção
+                        </span>
+                      )}
+                      {avaliacao.slaEstourado && (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                          ⏱️ SLA estourado ({avaliacao.diasResolucao}d)
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Comentário */}
+                    {avaliacao.comentario && (
+                      <div className={`flex items-start gap-2 ${isNegativa ? 'bg-red-100/50 p-3 rounded-lg' : ''}`}>
+                        <MessageSquare className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                        <p className={`text-sm ${isNegativa ? 'text-red-800 font-medium' : 'text-foreground'}`}>
+                          {avaliacao.comentario}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Dados da reclamação */}
+                    <div className="flex flex-wrap gap-3 text-sm">
+                      <span className="font-mono text-primary font-medium">
+                        {avaliacao.reclamacoes?.protocolo}
+                      </span>
+                      {avaliacao.reclamacoes?.categorias?.nome && (
+                        <span className="px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                          {avaliacao.reclamacoes.categorias.nome}
+                        </span>
+                      )}
+                      {avaliacao.reclamacoes?.bairros?.nome && (
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <MapPin className="w-3 h-3" />
+                          {avaliacao.reclamacoes.bairros.nome}
+                        </span>
+                      )}
+                      <span className="text-muted-foreground truncate max-w-[200px]">
+                        {avaliacao.reclamacoes?.rua}
+                      </span>
+                    </div>
+
+                    {/* Tempo de resolução */}
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Resolvido em {avaliacao.diasResolucao} dias
+                      </span>
+                      <span>•</span>
+                      <span>{avaliacao.reclamacoes?.nome_cidadao}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
+                    <Calendar className="w-4 h-4" />
+                    <span>
+                      {new Date(avaliacao.avaliado_em).toLocaleDateString("pt-BR", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric"
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {/* Pagination */}
-      {!loading && totalPages > 1 && (
+      {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Mostrando {startIndex + 1} a {Math.min(startIndex + ITEMS_PER_PAGE, avaliacoes.length)} de {avaliacoes.length} avaliações
+            Mostrando {startIndex + 1} a {Math.min(startIndex + ITEMS_PER_PAGE, avaliacoesFiltradas.length)} de {avaliacoesFiltradas.length} avaliações
           </p>
           <Pagination>
             <PaginationContent>
@@ -287,17 +615,24 @@ const PainelAvaliacoes = () => {
                   className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                 />
               </PaginationItem>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <PaginationItem key={page}>
-                  <PaginationLink
-                    onClick={() => handlePageChange(page)}
-                    isActive={currentPage === page}
-                    className="cursor-pointer"
-                  >
-                    {page}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                let page: number;
+                if (totalPages <= 5) page = i + 1;
+                else if (currentPage <= 3) page = i + 1;
+                else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
+                else page = currentPage - 2 + i;
+                return (
+                  <PaginationItem key={page}>
+                    <PaginationLink
+                      onClick={() => handlePageChange(page)}
+                      isActive={currentPage === page}
+                      className="cursor-pointer"
+                    >
+                      {page}
+                    </PaginationLink>
+                  </PaginationItem>
+                );
+              })}
               <PaginationItem>
                 <PaginationNext 
                   onClick={() => handlePageChange(currentPage + 1)}
