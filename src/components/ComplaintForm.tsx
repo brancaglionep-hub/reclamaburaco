@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, ArrowRight, Send, CheckCircle2, Pencil, Building2, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Send, CheckCircle2, Pencil, Building2, Loader2, AlertTriangle } from "lucide-react";
 import StepIndicator from "./StepIndicator";
 import LocationPicker from "./LocationPicker";
 import ProblemTypeSelector from "./ProblemTypeSelector";
 import MediaUpload from "./MediaUpload";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { PrefeituraConfig } from "@/hooks/usePrefeituraConfig";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const PREFEITURA_ID = "fd0e9b1b-a84b-4c33-b87a-3eb0250fc6f7";
 
@@ -89,6 +91,7 @@ interface ComplaintFormProps {
   onClose: () => void;
   prefeituraId?: string;
   bairroId?: string | null;
+  config?: PrefeituraConfig;
 }
 
 interface Bairro {
@@ -96,7 +99,31 @@ interface Bairro {
   nome: string;
 }
 
-const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: ComplaintFormProps) => {
+const defaultConfig: PrefeituraConfig = {
+  sla_padrao_dias: 7,
+  sla_alerta_percentual: 80,
+  sla_alertas_ativos: true,
+  exigir_foto_padrao: false,
+  permitir_video: true,
+  limite_imagens: 5,
+  permitir_anexo: true,
+  notif_email_ativo: true,
+  notif_whatsapp_ativo: false,
+  notif_sistema_ativo: true,
+  notif_ao_criar: true,
+  notif_ao_mudar_status: true,
+  notif_sla_proximo: true,
+  notif_ao_concluir: true,
+  avaliacao_nota_destaque: 4,
+  avaliacao_comentarios_publicos: true,
+  avaliacao_permitir_resposta: true,
+  avaliacao_obrigatoria: false,
+  lgpd_texto_consentimento: 'Ao enviar esta reclamação, você concorda com o tratamento dos seus dados pessoais conforme nossa política de privacidade.',
+  lgpd_anonimizar_relatorios: false,
+  lgpd_retencao_anos: 5,
+};
+
+const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId, config = defaultConfig }: ComplaintFormProps) => {
   const [step, setStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -104,6 +131,7 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
   const [errors, setErrors] = useState<FormErrors>({});
   const [bairros, setBairros] = useState<Bairro[]>([]);
   const [prefeituraCidade, setPrefeituraCidade] = useState<string>("");
+  const [lgpdAceito, setLgpdAceito] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     nome: "",
     email: "",
@@ -211,6 +239,15 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
         return bairroValido && formData.rua.trim() !== "";
       case 3:
         return formData.tipoProblema !== "";
+      case 5:
+        // Se exigir foto, precisa ter pelo menos uma
+        if (config.exigir_foto_padrao && formData.fotos.length === 0) {
+          return false;
+        }
+        return true;
+      case 6:
+        // Precisa aceitar LGPD para enviar
+        return lgpdAceito;
       default:
         return true;
     }
@@ -654,7 +691,20 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
                   videos={formData.videos}
                   onPhotosChange={(files) => updateField("fotos", files)}
                   onVideosChange={(files) => updateField("videos", files)}
+                  limiteImagens={config.limite_imagens}
+                  permitirVideo={config.permitir_video}
                 />
+
+                {config.exigir_foto_padrao && formData.fotos.length === 0 && (
+                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-amber-600" />
+                      <p className="text-sm text-amber-700">
+                        Esta prefeitura exige pelo menos uma foto para enviar a reclamação.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -768,6 +818,21 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId }: Comp
                       </div>
                     </>
                   )}
+                </div>
+
+                {/* LGPD Consent */}
+                <div className="mt-6 p-4 bg-muted/50 rounded-xl border border-border">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="lgpd-consent"
+                      checked={lgpdAceito}
+                      onCheckedChange={(checked) => setLgpdAceito(checked === true)}
+                      className="mt-0.5"
+                    />
+                    <label htmlFor="lgpd-consent" className="text-sm text-muted-foreground cursor-pointer leading-relaxed">
+                      {config.lgpd_texto_consentimento}
+                    </label>
+                  </div>
                 </div>
               </div>
             )}
