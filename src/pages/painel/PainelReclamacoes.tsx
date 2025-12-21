@@ -131,8 +131,10 @@ const PainelReclamacoes = () => {
     }
   });
 
-  // Ordenar por urgência
-  const sortedReclamacoes = ordenarPorUrgencia(filteredReclamacoes);
+  // Ordenar por data mais recente primeiro
+  const sortedReclamacoes = [...filteredReclamacoes].sort((a, b) => 
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
 
   // Pagination logic
   const totalPages = Math.ceil(sortedReclamacoes.length / ITEMS_PER_PAGE);
