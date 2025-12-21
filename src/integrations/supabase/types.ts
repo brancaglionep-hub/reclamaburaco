@@ -341,6 +341,98 @@ export type Database = {
           },
         ]
       }
+      prefeitura_configuracoes: {
+        Row: {
+          avaliacao_comentarios_publicos: boolean
+          avaliacao_nota_destaque: number
+          avaliacao_obrigatoria: boolean
+          avaliacao_permitir_resposta: boolean
+          created_at: string | null
+          exigir_foto_padrao: boolean
+          id: string
+          lgpd_anonimizar_relatorios: boolean
+          lgpd_retencao_anos: number
+          lgpd_texto_consentimento: string | null
+          limite_imagens: number
+          notif_ao_concluir: boolean
+          notif_ao_criar: boolean
+          notif_ao_mudar_status: boolean
+          notif_email_ativo: boolean
+          notif_sistema_ativo: boolean
+          notif_sla_proximo: boolean
+          notif_whatsapp_ativo: boolean
+          permitir_anexo: boolean
+          permitir_video: boolean
+          prefeitura_id: string
+          sla_alerta_percentual: number
+          sla_alertas_ativos: boolean
+          sla_padrao_dias: number
+          updated_at: string | null
+        }
+        Insert: {
+          avaliacao_comentarios_publicos?: boolean
+          avaliacao_nota_destaque?: number
+          avaliacao_obrigatoria?: boolean
+          avaliacao_permitir_resposta?: boolean
+          created_at?: string | null
+          exigir_foto_padrao?: boolean
+          id?: string
+          lgpd_anonimizar_relatorios?: boolean
+          lgpd_retencao_anos?: number
+          lgpd_texto_consentimento?: string | null
+          limite_imagens?: number
+          notif_ao_concluir?: boolean
+          notif_ao_criar?: boolean
+          notif_ao_mudar_status?: boolean
+          notif_email_ativo?: boolean
+          notif_sistema_ativo?: boolean
+          notif_sla_proximo?: boolean
+          notif_whatsapp_ativo?: boolean
+          permitir_anexo?: boolean
+          permitir_video?: boolean
+          prefeitura_id: string
+          sla_alerta_percentual?: number
+          sla_alertas_ativos?: boolean
+          sla_padrao_dias?: number
+          updated_at?: string | null
+        }
+        Update: {
+          avaliacao_comentarios_publicos?: boolean
+          avaliacao_nota_destaque?: number
+          avaliacao_obrigatoria?: boolean
+          avaliacao_permitir_resposta?: boolean
+          created_at?: string | null
+          exigir_foto_padrao?: boolean
+          id?: string
+          lgpd_anonimizar_relatorios?: boolean
+          lgpd_retencao_anos?: number
+          lgpd_texto_consentimento?: string | null
+          limite_imagens?: number
+          notif_ao_concluir?: boolean
+          notif_ao_criar?: boolean
+          notif_ao_mudar_status?: boolean
+          notif_email_ativo?: boolean
+          notif_sistema_ativo?: boolean
+          notif_sla_proximo?: boolean
+          notif_whatsapp_ativo?: boolean
+          permitir_anexo?: boolean
+          permitir_video?: boolean
+          prefeitura_id?: string
+          sla_alerta_percentual?: number
+          sla_alertas_ativos?: boolean
+          sla_padrao_dias?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prefeitura_configuracoes_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: true
+            referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prefeituras: {
         Row: {
           ativo: boolean | null
