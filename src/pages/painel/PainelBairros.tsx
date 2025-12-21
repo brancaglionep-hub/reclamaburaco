@@ -464,48 +464,91 @@ const PainelBairros = () => {
   };
 
   const handleExportCSV = () => {
-    const headers = [
-      "Bairro",
-      "Status",
-      "Situação",
-      "Total Reclamações",
-      "Resolvidas",
-      "% Resolvidas",
-      "Fora do SLA",
-      "% Fora SLA",
-      "Tempo Médio (dias)",
-      "Nota Média",
-      "Total Avaliações",
+    // Ordenar por total de reclamações (maior para menor)
+    const bairrosOrdenados = [...bairrosMetricas].sort((a, b) => b.totalReclamacoes - a.totalReclamacoes);
+    
+    // Calcular totais gerais
+    const totalReclamacoes = bairrosOrdenados.reduce((sum, b) => sum + b.totalReclamacoes, 0);
+    const totalResolvidas = bairrosOrdenados.reduce((sum, b) => sum + b.resolvidas, 0);
+    const totalForaSLA = bairrosOrdenados.reduce((sum, b) => sum + b.foraDoSLA, 0);
+    const bairrosAtivos = bairrosOrdenados.filter(b => b.ativo).length;
+    const bairrosControlados = bairrosOrdenados.filter(b => b.status === 'controlado').length;
+    const bairrosAtencao = bairrosOrdenados.filter(b => b.status === 'atencao').length;
+    const bairrosCriticos = bairrosOrdenados.filter(b => b.status === 'critico').length;
+
+    // Resumo executivo no início
+    const resumo = [
+      ["RELATÓRIO DE BAIRROS"],
+      [`Data: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`],
+      [""],
+      ["RESUMO GERAL"],
+      [`Total de bairros;${bairrosOrdenados.length}`],
+      [`Bairros ativos;${bairrosAtivos}`],
+      [`Total de reclamações;${totalReclamacoes}`],
+      [`Resolvidas;${totalResolvidas} (${totalReclamacoes > 0 ? Math.round((totalResolvidas / totalReclamacoes) * 100) : 0}%)`],
+      [`Fora do SLA;${totalForaSLA} (${totalReclamacoes > 0 ? Math.round((totalForaSLA / totalReclamacoes) * 100) : 0}%)`],
+      [""],
+      ["SITUAÇÃO DOS BAIRROS"],
+      [`Controlados (sem problemas);${bairrosControlados}`],
+      [`Em Atenção (monitorar);${bairrosAtencao}`],
+      [`Críticos (ação urgente);${bairrosCriticos}`],
+      [""],
+      [""],
+      ["DADOS POR BAIRRO (ordenado por volume de reclamações)"],
     ];
 
-    const rows = bairrosMetricas.map(b => [
-      b.nome,
-      b.ativo ? "Ativo" : "Inativo",
-      b.status === 'controlado' ? "Controlado" : b.status === 'atencao' ? "Atenção" : "Crítico",
-      b.totalReclamacoes,
-      b.resolvidas,
-      `${Math.round(b.percentualResolvidas)}%`,
-      b.foraDoSLA,
-      `${Math.round(b.percentualForaSLA)}%`,
-      b.tempoMedioResolucao,
-      b.notaMedia > 0 ? b.notaMedia.toFixed(1) : "N/A",
-      b.totalAvaliacoes,
-    ]);
+    const headers = [
+      "Ranking",
+      "Bairro",
+      "Situação",
+      "Ativo",
+      "Reclamações",
+      "Resolvidas",
+      "Pendentes",
+      "% Resolução",
+      "Fora SLA",
+      "% Fora SLA",
+      "Tempo Médio",
+      "Nota Cidadãos",
+      "Avaliações",
+    ];
+
+    const rows = bairrosOrdenados.map((b, index) => {
+      const pendentes = b.totalReclamacoes - b.resolvidas;
+      const situacaoTexto = b.status === 'controlado' ? "Controlado" : b.status === 'atencao' ? "Atenção" : "Crítico";
+      
+      return [
+        `${index + 1}º`,
+        b.nome,
+        situacaoTexto,
+        b.ativo ? "Sim" : "Não",
+        b.totalReclamacoes,
+        b.resolvidas,
+        pendentes,
+        b.totalReclamacoes > 0 ? `${Math.round(b.percentualResolvidas)}%` : "-",
+        b.foraDoSLA,
+        b.totalReclamacoes > 0 ? `${Math.round(b.percentualForaSLA)}%` : "-",
+        b.tempoMedioResolucao > 0 ? `${b.tempoMedioResolucao} dias` : "-",
+        b.notaMedia > 0 ? `${b.notaMedia.toFixed(1)}` : "-",
+        b.totalAvaliacoes,
+      ];
+    });
 
     const csvContent = [
-      headers.join(","),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(",")),
+      ...resumo.map(row => row.join(";")),
+      headers.join(";"),
+      ...rows.map(row => row.map(cell => `${cell}`).join(";")),
     ].join("\n");
 
     const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `bairros_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.download = `relatorio_bairros_${format(new Date(), "yyyy-MM-dd")}.csv`;
     link.click();
     URL.revokeObjectURL(url);
 
-    toast({ title: "Exportado", description: "CSV gerado com sucesso" });
+    toast({ title: "Exportado", description: "Relatório CSV gerado com sucesso" });
   };
 
   const getStatusBadge = (status: 'controlado' | 'atencao' | 'critico') => {
