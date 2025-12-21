@@ -297,7 +297,7 @@ const PainelDashboard = () => {
     staleTime: 1000 * 60 * 2,
   });
 
-  if (isLoading) {
+  if (isLoading || !data) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -305,33 +305,18 @@ const PainelDashboard = () => {
     );
   }
 
-  const { 
-    stats, 
-    statusStats, 
-    slaStats,
-    bairroStats, 
-    bairrosCriticos,
-    categoriaStats, 
-    categoriasCriticas,
-    visitasStats, 
-    tendenciaMensal,
-    notaMedia,
-    totalAvaliacoes,
-    alertasHoje
-  } = data || {
-    stats: { total: 0, recebidas: 0, emAndamento: 0, resolvidas: 0, doMes: 0, slaVencido: 0, slaPerto: 0, slaNoPrazo: 0, emAndamentoNoPrazo: 0, emAndamentoForaPrazo: 0, slaPadraoDias: 7 },
-    statusStats: [],
-    slaStats: [],
-    bairroStats: [],
-    bairrosCriticos: [],
-    categoriaStats: [],
-    categoriasCriticas: [],
-    visitasStats: [],
-    tendenciaMensal: [],
-    notaMedia: 0,
-    totalAvaliacoes: 0,
-    alertasHoje: []
-  };
+  const stats = data.stats || { total: 0, recebidas: 0, emAndamento: 0, resolvidas: 0, doMes: 0, slaVencido: 0, slaPerto: 0, slaNoPrazo: 0, emAndamentoNoPrazo: 0, emAndamentoForaPrazo: 0, slaPadraoDias: 7 };
+  const statusStats = data.statusStats || [];
+  const slaStats = data.slaStats || [];
+  const bairroStats = data.bairroStats || [];
+  const bairrosCriticos = data.bairrosCriticos || [];
+  const categoriaStats = data.categoriaStats || [];
+  const categoriasCriticas = data.categoriasCriticas || [];
+  const visitasStats = data.visitasStats || [];
+  const tendenciaMensal = data.tendenciaMensal || [];
+  const notaMedia = data.notaMedia || 0;
+  const totalAvaliacoes = data.totalAvaliacoes || 0;
+  const alertasHoje = data.alertasHoje || [];
 
   return (
     <div className="space-y-8">
