@@ -7,10 +7,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Twilio credentials
-const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
-const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
+// Vonage credentials
+const vonageApiKey = Deno.env.get("VONAGE_API_KEY");
+const vonageApiSecret = Deno.env.get("VONAGE_API_SECRET");
 
 // Resend for email
 const resendApiKey = Deno.env.get("RESEND_API_KEY");
@@ -85,47 +84,107 @@ async function sendEmail(to: string, subject: string, message: string, prefeitur
   }
 }
 
-// Send SMS via Twilio
+// Send SMS via Vonage
 async function sendSMS(to: string, message: string): Promise<SendResult> {
-  if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
-    console.log("[SMS] Twilio not configured, skipping...");
-    return { success: false, error: "Twilio não configurado" };
+  if (!vonageApiKey || !vonageApiSecret) {
+    console.log("[SMS] Vonage not configured, skipping...");
+    return { success: false, error: "Vonage não configurado" };
   }
 
   try {
+    // Format phone number: ensure it starts with country code
     let formattedPhone = to.replace(/\D/g, "");
     if (!formattedPhone.startsWith("55")) {
       formattedPhone = "55" + formattedPhone;
     }
-    formattedPhone = "+" + formattedPhone;
 
-    const url = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
-    const auth = btoa(`${twilioAccountSid}:${twilioAuthToken}`);
+    console.log(`[SMS] Sending to ${formattedPhone} via Vonage`);
 
-    const response = await fetch(url, {
+    const response = await fetch("https://rest.nexmo.com/sms/json", {
       method: "POST",
       headers: {
-        "Authorization": `Basic ${auth}`,
-        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Type": "application/json",
       },
-      body: new URLSearchParams({
-        From: twilioPhoneNumber,
-        To: formattedPhone,
-        Body: message,
+      body: JSON.stringify({
+        api_key: vonageApiKey,
+        api_secret: vonageApiSecret,
+        to: formattedPhone,
+        from: "Prefeitura",
+        text: message,
+        type: "unicode",
       }),
     });
 
     const data = await response.json();
+    console.log("[SMS] Vonage response:", JSON.stringify(data));
 
-    if (!response.ok) {
-      console.error("[SMS] Twilio error:", data);
-      return { success: false, error: data.message || "Erro ao enviar SMS" };
+    // Vonage returns an array of messages, check the first one
+    if (data.messages && data.messages.length > 0) {
+      const firstMessage = data.messages[0];
+      if (firstMessage.status === "0") {
+        console.log("[SMS] Sent successfully:", firstMessage["message-id"]);
+        return { success: true, messageId: firstMessage["message-id"] };
+      } else {
+        console.error("[SMS] Vonage error:", firstMessage["error-text"]);
+        return { success: false, error: firstMessage["error-text"] || "Erro ao enviar SMS" };
+      }
     }
 
-    console.log("[SMS] Sent successfully:", data.sid);
-    return { success: true, messageId: data.sid };
+    return { success: false, error: "Resposta inesperada da Vonage" };
   } catch (error: unknown) {
     console.error("[SMS] Error:", error);
+    const message = error instanceof Error ? error.message : "Erro desconhecido";
+    return { success: false, error: message };
+  }
+}
+
+// Send WhatsApp via Vonage Messages API
+async function sendWhatsApp(to: string, message: string): Promise<SendResult> {
+  if (!vonageApiKey || !vonageApiSecret) {
+    console.log("[WHATSAPP] Vonage not configured, skipping...");
+    return { success: false, error: "Vonage não configurado" };
+  }
+
+  try {
+    // Format phone number
+    let formattedPhone = to.replace(/\D/g, "");
+    if (!formattedPhone.startsWith("55")) {
+      formattedPhone = "55" + formattedPhone;
+    }
+
+    console.log(`[WHATSAPP] Sending to ${formattedPhone} via Vonage`);
+
+    // Create JWT for Vonage Messages API authentication
+    const credentials = btoa(`${vonageApiKey}:${vonageApiSecret}`);
+
+    const response = await fetch("https://messages-sandbox.nexmo.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Basic ${credentials}`,
+      },
+      body: JSON.stringify({
+        message_type: "text",
+        text: message,
+        to: formattedPhone,
+        from: "14157386102", // Vonage Sandbox WhatsApp number
+        channel: "whatsapp",
+      }),
+    });
+
+    const data = await response.json();
+    console.log("[WHATSAPP] Vonage response:", JSON.stringify(data));
+
+    if (response.ok && data.message_uuid) {
+      console.log("[WHATSAPP] Sent successfully:", data.message_uuid);
+      return { success: true, messageId: data.message_uuid };
+    } else {
+      const errorMessage = data.title || data.detail || "Erro ao enviar WhatsApp";
+      console.error("[WHATSAPP] Vonage error:", errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  } catch (error: unknown) {
+    console.error("[WHATSAPP] Error:", error);
     const message = error instanceof Error ? error.message : "Erro desconhecido";
     return { success: false, error: message };
   }
@@ -238,8 +297,12 @@ serve(async (req) => {
             sendResult = { success: false, error: "Push não implementado" };
             break;
           case "whatsapp":
-            console.log(`[WHATSAPP] WhatsApp for ${cidadao.nome} - temporarily disabled`);
-            sendResult = { success: false, error: "WhatsApp temporariamente desativado" };
+            if (!cidadao.telefone) {
+              console.log(`[WHATSAPP] Cidadão ${cidadao.nome} sem telefone cadastrado`);
+              sendResult = { success: false, error: "Telefone não cadastrado" };
+            } else {
+              sendResult = await sendWhatsApp(cidadao.telefone, mensagemCompleta);
+            }
             break;
         }
 
