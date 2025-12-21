@@ -131,7 +131,8 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId, config
   const [errors, setErrors] = useState<FormErrors>({});
   const [bairros, setBairros] = useState<Bairro[]>([]);
   const [prefeituraCidade, setPrefeituraCidade] = useState<string>("");
-  const [lgpdAceito, setLgpdAceito] = useState(false);
+  const [lgpdAceito, setLgpdAceito] = useState(true);
+  const [showLgpdConfirm, setShowLgpdConfirm] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     nome: "",
     email: "",
@@ -826,7 +827,13 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId, config
                     <Checkbox
                       id="lgpd-consent"
                       checked={lgpdAceito}
-                      onCheckedChange={(checked) => setLgpdAceito(checked === true)}
+                      onCheckedChange={(checked) => {
+                        if (checked === false) {
+                          setShowLgpdConfirm(true);
+                        } else {
+                          setLgpdAceito(true);
+                        }
+                      }}
                       className="mt-0.5"
                     />
                     <label htmlFor="lgpd-consent" className="text-sm text-muted-foreground cursor-pointer leading-relaxed">
@@ -834,6 +841,38 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId, config
                     </label>
                   </div>
                 </div>
+
+                {/* LGPD Confirmation Dialog */}
+                {showLgpdConfirm && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-card rounded-2xl p-6 max-w-md w-full shadow-xl">
+                      <div className="flex items-center gap-3 mb-4">
+                        <AlertTriangle className="w-6 h-6 text-amber-500" />
+                        <h3 className="text-lg font-semibold text-foreground">Atenção</h3>
+                      </div>
+                      <p className="text-muted-foreground mb-6">
+                        Você precisa concordar com o tratamento dos seus dados pessoais para enviar a reclamação. Deseja realmente desmarcar esta opção?
+                      </p>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => {
+                            setLgpdAceito(false);
+                            setShowLgpdConfirm(false);
+                          }}
+                          className="flex-1 px-4 py-3 rounded-xl border-2 border-border text-foreground hover:bg-muted transition-colors"
+                        >
+                          Sim, desmarcar
+                        </button>
+                        <button
+                          onClick={() => setShowLgpdConfirm(false)}
+                          className="flex-1 px-4 py-3 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+                        >
+                          Manter selecionado
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
