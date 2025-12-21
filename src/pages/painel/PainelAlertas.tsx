@@ -49,7 +49,7 @@ interface Cidadao {
 }
 
 type TipoAlerta = 'enchente' | 'chuva_forte' | 'alagamento' | 'emergencia' | 'aviso_geral';
-type CanalEnvio = 'email' | 'sms';
+type CanalEnvio = 'email' | 'sms' | 'whatsapp';
 
 const tiposAlerta: { value: TipoAlerta; label: string; icon: typeof AlertTriangle }[] = [
   { value: 'enchente', label: 'Enchente', icon: Droplets },
@@ -62,10 +62,10 @@ const tiposAlerta: { value: TipoAlerta; label: string; icon: typeof AlertTriangl
 const canaisEnvio: { value: CanalEnvio; label: string; icon: typeof Mail; enabled: boolean }[] = [
   { value: 'email', label: 'Email', icon: Mail, enabled: true },
   { value: 'sms', label: 'SMS', icon: Smartphone, enabled: true },
+  { value: 'whatsapp', label: 'WhatsApp', icon: MessageSquare, enabled: true },
 ];
 
 const canaisEmBreve: { label: string; icon: typeof Mail }[] = [
-  { label: 'WhatsApp', icon: MessageSquare },
   { label: 'Push Notification', icon: BellRing },
 ];
 
