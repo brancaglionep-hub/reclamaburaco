@@ -18,6 +18,48 @@ interface ResendWebhookEvent {
   };
 }
 
+async function verifyWebhookSignature(
+  payload: string,
+  svixId: string,
+  svixTimestamp: string,
+  svixSignature: string,
+  secret: string
+): Promise<boolean> {
+  // Remove the whsec_ prefix if present
+  const secretBytes = secret.startsWith("whsec_") 
+    ? Uint8Array.from(atob(secret.slice(6)), c => c.charCodeAt(0))
+    : new TextEncoder().encode(secret);
+
+  // Create the signed content
+  const signedContent = `${svixId}.${svixTimestamp}.${payload}`;
+  
+  // Generate HMAC-SHA256 using Web Crypto API
+  const key = await globalThis.crypto.subtle.importKey(
+    "raw",
+    secretBytes,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  
+  const signature = await globalThis.crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(signedContent)
+  );
+  
+  const expectedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  
+  // Parse the signature header (format: v1,signature1 v1,signature2)
+  const signatures = svixSignature.split(" ").map(s => {
+    const [version, sig] = s.split(",");
+    return { version, signature: sig };
+  });
+  
+  // Check if any signature matches
+  return signatures.some(s => s.version === "v1" && s.signature === expectedSignature);
+}
+
 const handler = async (req: Request): Promise<Response> => {
   console.log("Resend webhook received:", req.method);
 
@@ -26,9 +68,57 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const event: ResendWebhookEvent = await req.json();
+    const webhookSecret = Deno.env.get("RESEND_WEBHOOK_SECRET");
     
-    console.log("Resend webhook event type:", event.type);
+    if (!webhookSecret) {
+      console.error("RESEND_WEBHOOK_SECRET not configured");
+      return new Response(
+        JSON.stringify({ error: "Webhook secret not configured" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Get the raw body for signature verification
+    const body = await req.text();
+    
+    // Get Svix headers for signature verification
+    const svixId = req.headers.get("svix-id");
+    const svixTimestamp = req.headers.get("svix-timestamp");
+    const svixSignature = req.headers.get("svix-signature");
+
+    if (!svixId || !svixTimestamp || !svixSignature) {
+      console.error("Missing Svix headers");
+      return new Response(
+        JSON.stringify({ error: "Missing webhook signature headers" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Verify timestamp is within 5 minutes
+    const timestamp = parseInt(svixTimestamp);
+    const now = Math.floor(Date.now() / 1000);
+    if (Math.abs(now - timestamp) > 300) {
+      console.error("Webhook timestamp too old");
+      return new Response(
+        JSON.stringify({ error: "Webhook timestamp expired" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Verify the webhook signature
+    const isValid = await verifyWebhookSignature(body, svixId, svixTimestamp, svixSignature, webhookSecret);
+    
+    if (!isValid) {
+      console.error("Webhook signature verification failed");
+      return new Response(
+        JSON.stringify({ error: "Invalid webhook signature" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const event: ResendWebhookEvent = JSON.parse(body);
+    
+    console.log("Resend webhook verified! Event type:", event.type);
     console.log("Resend webhook data:", JSON.stringify(event.data, null, 2));
 
     // Handle different event types
@@ -51,7 +141,6 @@ const handler = async (req: Request): Promise<Response> => {
       
       case "email.bounced":
         console.log(`Email bounced for: ${event.data.to?.join(", ")}`);
-        // Aqui você pode adicionar lógica para marcar o email como inválido no banco
         break;
       
       case "email.opened":
