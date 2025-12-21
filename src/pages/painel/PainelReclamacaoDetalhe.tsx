@@ -47,7 +47,6 @@ interface HistoricoItem {
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
   recebida: { label: "Recebida", color: "bg-blue-100 text-blue-700", icon: Clock },
-  em_analise: { label: "Em Análise", color: "bg-yellow-100 text-yellow-700", icon: AlertCircle },
   em_andamento: { label: "Em Andamento", color: "bg-orange-100 text-orange-700", icon: Clock },
   resolvida: { label: "Resolvida", color: "bg-green-100 text-green-700", icon: CheckCircle2 },
   arquivada: { label: "Arquivada", color: "bg-gray-100 text-gray-700", icon: AlertCircle }
@@ -345,7 +344,6 @@ const PainelReclamacaoDetalhe = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="recebida">Recebida</SelectItem>
-                <SelectItem value="em_analise">Em Análise</SelectItem>
                 <SelectItem value="em_andamento">Em Andamento</SelectItem>
                 <SelectItem value="resolvida">Resolvida</SelectItem>
                 <SelectItem value="arquivada">Arquivada</SelectItem>

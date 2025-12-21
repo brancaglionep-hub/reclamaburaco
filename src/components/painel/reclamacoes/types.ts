@@ -28,7 +28,6 @@ export const SLA_ALERTA_DIAS = 10; // Alerta a partir de 10 dias
 
 export const statusConfig: Record<string, { label: string; color: string; bgClass: string }> = {
   recebida: { label: "Recebida", color: "text-blue-700", bgClass: "bg-blue-100" },
-  em_analise: { label: "Em Análise", color: "text-yellow-700", bgClass: "bg-yellow-100" },
   em_andamento: { label: "Em Andamento", color: "text-orange-700", bgClass: "bg-orange-100" },
   resolvida: { label: "Resolvida", color: "text-green-700", bgClass: "bg-green-100" },
   arquivada: { label: "Arquivada", color: "text-gray-700", bgClass: "bg-gray-100" }
