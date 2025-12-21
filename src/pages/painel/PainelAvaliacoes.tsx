@@ -40,10 +40,15 @@ interface Avaliacao {
     id: string;
     protocolo: string;
     rua: string;
+    numero: string | null;
     nome_cidadao: string;
+    email_cidadao: string;
+    telefone_cidadao: string | null;
+    descricao: string;
     status: string;
     created_at: string;
     updated_at: string;
+    resposta_prefeitura: string | null;
     bairro_id: string | null;
     categoria_id: string | null;
     bairros: { id: string; nome: string } | null;
@@ -87,10 +92,15 @@ const PainelAvaliacoes = () => {
             id,
             protocolo,
             rua,
+            numero,
             nome_cidadao,
+            email_cidadao,
+            telefone_cidadao,
+            descricao,
             status,
             created_at,
             updated_at,
+            resposta_prefeitura,
             bairro_id,
             categoria_id,
             bairros (id, nome),
@@ -230,36 +240,115 @@ const PainelAvaliacoes = () => {
     setCurrentPage(1);
   };
 
+  const formatarStatus = (status: string) => {
+    const statusMap: Record<string, string> = {
+      recebida: "Recebida",
+      em_analise: "Em Análise",
+      em_andamento: "Em Andamento",
+      resolvida: "Resolvida",
+      arquivada: "Arquivada"
+    };
+    return statusMap[status] || status;
+  };
+
+  const formatarData = (data: string) => {
+    return new Date(data).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  };
+
   const exportToExcel = () => {
     const headers = [
-      "Data Avaliação",
-      "Estrelas",
-      "Comentário",
+      // Dados da Avaliação
+      "Data da Avaliação",
+      "Hora da Avaliação",
+      "Nota (Estrelas)",
+      "Classificação",
+      "Comentário do Cidadão",
+      
+      // Dados da Reclamação
       "Protocolo",
-      "Categoria",
+      "Status da Reclamação",
+      "Data de Abertura",
+      "Data de Resolução",
+      "Dias para Resolver",
+      "SLA (15 dias)",
+      "Prazo SLA",
+      
+      // Localização
+      "Categoria do Problema",
       "Bairro",
       "Rua",
-      "Cidadão",
-      "Dias Resolução",
-      "SLA",
-      "Status Reclamação"
+      "Número",
+      
+      // Dados do Cidadão
+      "Nome do Cidadão",
+      "E-mail",
+      "Telefone",
+      
+      // Detalhes
+      "Descrição do Problema",
+      "Resposta da Prefeitura"
     ];
 
-    const rows = avaliacoesFiltradas.map(a => [
-      new Date(a.avaliado_em).toLocaleDateString("pt-BR"),
-      a.estrelas.toString(),
-      a.comentario?.replace(/[\n\r]/g, " ") || "",
-      a.reclamacoes?.protocolo || "",
-      a.reclamacoes?.categorias?.nome || "",
-      a.reclamacoes?.bairros?.nome || "",
-      a.reclamacoes?.rua || "",
-      a.reclamacoes?.nome_cidadao || "",
-      a.diasResolucao.toString(),
-      a.slaEstourado ? "Estourado" : "Dentro",
-      a.reclamacoes?.status || ""
-    ]);
+    const rows = avaliacoesFiltradas.map(a => {
+      const dataAvaliacao = new Date(a.avaliado_em);
+      const classificacao = a.estrelas >= 4 ? "Positiva" : a.estrelas === 3 ? "Neutra" : "Negativa";
+      
+      return [
+        // Dados da Avaliação
+        dataAvaliacao.toLocaleDateString("pt-BR"),
+        dataAvaliacao.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        a.estrelas.toString(),
+        classificacao,
+        a.comentario?.replace(/[\n\r]/g, " ").trim() || "(Sem comentário)",
+        
+        // Dados da Reclamação
+        a.reclamacoes?.protocolo || "",
+        formatarStatus(a.reclamacoes?.status || ""),
+        a.reclamacoes?.created_at ? new Date(a.reclamacoes.created_at).toLocaleDateString("pt-BR") : "",
+        a.reclamacoes?.updated_at ? new Date(a.reclamacoes.updated_at).toLocaleDateString("pt-BR") : "",
+        a.diasResolucao.toString(),
+        a.slaEstourado ? "ESTOURADO" : "Dentro do prazo",
+        a.slaEstourado ? `${a.diasResolucao - 15} dias de atraso` : `${15 - a.diasResolucao} dias de folga`,
+        
+        // Localização
+        a.reclamacoes?.categorias?.nome || "(Sem categoria)",
+        a.reclamacoes?.bairros?.nome || "(Sem bairro)",
+        a.reclamacoes?.rua || "",
+        a.reclamacoes?.numero || "",
+        
+        // Dados do Cidadão
+        a.reclamacoes?.nome_cidadao || "",
+        a.reclamacoes?.email_cidadao || "",
+        a.reclamacoes?.telefone_cidadao || "",
+        
+        // Detalhes
+        a.reclamacoes?.descricao?.replace(/[\n\r]/g, " ").trim() || "",
+        a.reclamacoes?.resposta_prefeitura?.replace(/[\n\r]/g, " ").trim() || "(Sem resposta)"
+      ];
+    });
+
+    // Adicionar linha de resumo no início
+    const resumo = [
+      ["RELATÓRIO DE AVALIAÇÕES"],
+      [`Gerado em: ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}`],
+      [`Total de avaliações: ${avaliacoesFiltradas.length}`],
+      [`Nota média: ${(avaliacoesFiltradas.reduce((acc, a) => acc + a.estrelas, 0) / avaliacoesFiltradas.length || 0).toFixed(2)}`],
+      [`Positivas (4-5 estrelas): ${avaliacoesFiltradas.filter(a => a.estrelas >= 4).length}`],
+      [`Negativas (1-2 estrelas): ${avaliacoesFiltradas.filter(a => a.estrelas <= 2).length}`],
+      [`Com SLA estourado: ${avaliacoesFiltradas.filter(a => a.slaEstourado).length}`],
+      [""],
+      ["--- DADOS DETALHADOS ---"],
+      [""]
+    ];
 
     const csvContent = [
+      ...resumo.map(row => row.join(";")),
       headers.join(";"),
       ...rows.map(row => row.map(cell => `"${cell}"`).join(";"))
     ].join("\n");
@@ -269,10 +358,13 @@ const PainelAvaliacoes = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `avaliacoes_${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `relatorio_avaliacoes_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    toast({ title: "Avaliações exportadas com sucesso!" });
+    toast({ 
+      title: "Relatório exportado!", 
+      description: `${avaliacoesFiltradas.length} avaliações exportadas com sucesso.`
+    });
   };
 
   const renderStars = (count: number) => (
