@@ -336,14 +336,86 @@ const PainelDashboard = () => {
           <p className="text-muted-foreground mt-1">Visão geral das reclamações</p>
         </div>
         
-        <div className="flex items-center gap-3 bg-muted/50 px-4 py-2 rounded-lg">
-          <LayoutDashboard className="w-4 h-4 text-muted-foreground" />
-          <Label htmlFor="modo-executivo" className="text-sm cursor-pointer">Modo Executivo</Label>
-          <Switch 
-            id="modo-executivo" 
-            checked={modoExecutivo} 
-            onCheckedChange={setModoExecutivo} 
-          />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 bg-muted/50 px-4 py-2 rounded-lg">
+            <LayoutDashboard className="w-4 h-4 text-muted-foreground" />
+            <Label htmlFor="modo-executivo" className="text-sm cursor-pointer">Modo Executivo</Label>
+            <Switch 
+              id="modo-executivo" 
+              checked={modoExecutivo} 
+              onCheckedChange={setModoExecutivo} 
+            />
+          </div>
+          
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Info className="h-4 w-4" />
+                <span className="hidden sm:inline">Ajuda</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Timer className="h-5 w-5" />
+                  Entenda o Dashboard
+                </DialogTitle>
+                <DialogDescription>
+                  Guia rápido dos indicadores do painel
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 text-sm">
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <p className="font-medium mb-2">O que é SLA?</p>
+                  <p className="text-muted-foreground">
+                    SLA (Service Level Agreement) é o prazo máximo para resolver uma reclamação. 
+                    O prazo configurado é de <strong>{stats.slaPadraoDias} dias</strong>.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="font-medium">Indicadores de prazo:</p>
+                  
+                  <div className="flex items-start gap-3 p-3 rounded-lg border border-green-500/30 bg-green-500/5">
+                    <span className="text-lg">🟢</span>
+                    <div>
+                      <p className="font-medium text-green-700">No Prazo</p>
+                      <p className="text-muted-foreground text-xs">
+                        Reclamações dentro do prazo estipulado.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5">
+                    <span className="text-lg">🟡</span>
+                    <div>
+                      <p className="font-medium text-yellow-700">Perto do Vencimento</p>
+                      <p className="text-muted-foreground text-xs">
+                        Atingiram 80% do prazo. Atenção redobrada!
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-3 rounded-lg border border-red-500/30 bg-red-500/5">
+                    <span className="text-lg">🔴</span>
+                    <div>
+                      <p className="font-medium text-red-700">SLA Vencido</p>
+                      <p className="text-muted-foreground text-xs">
+                        Ultrapassaram o prazo. Prioridade máxima!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                  <p className="font-medium text-blue-700 mb-1">💡 Dica</p>
+                  <p className="text-muted-foreground text-xs">
+                    Configure o prazo do SLA em <strong>Configurações → SLA e Prazos</strong>.
+                  </p>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -446,77 +518,7 @@ const PainelDashboard = () => {
 
       {/* Stats Cards - Linha 2: SLA */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium text-muted-foreground">Indicadores de SLA</h3>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
-                <Info className="h-4 w-4 text-muted-foreground" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Timer className="h-5 w-5" />
-                  O que é SLA?
-                </DialogTitle>
-                <DialogDescription>
-                  Entenda os indicadores de prazo do seu painel
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 text-sm">
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <p className="font-medium mb-2">SLA (Service Level Agreement)</p>
-                  <p className="text-muted-foreground">
-                    É o prazo máximo que a prefeitura tem para resolver uma reclamação. 
-                    O prazo configurado atualmente é de <strong>{stats.slaPadraoDias} dias</strong>.
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3 p-3 rounded-lg border border-green-500/30 bg-green-500/5">
-                    <span className="text-lg">🟢</span>
-                    <div>
-                      <p className="font-medium text-green-700">No Prazo</p>
-                      <p className="text-muted-foreground text-xs">
-                        Reclamações abertas que ainda estão dentro do prazo estipulado. Tudo certo!
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5">
-                    <span className="text-lg">🟡</span>
-                    <div>
-                      <p className="font-medium text-yellow-700">Perto do Vencimento</p>
-                      <p className="text-muted-foreground text-xs">
-                        Reclamações que já atingiram 80% do prazo. Atenção redobrada para não estourar o SLA!
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-3 rounded-lg border border-red-500/30 bg-red-500/5">
-                    <span className="text-lg">🔴</span>
-                    <div>
-                      <p className="font-medium text-red-700">SLA Vencido</p>
-                      <p className="text-muted-foreground text-xs">
-                        Reclamações que ultrapassaram o prazo máximo. Essas são prioridade máxima e 
-                        impactam negativamente a nota da gestão.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
-                  <p className="font-medium text-blue-700 mb-1">💡 Dica</p>
-                  <p className="text-muted-foreground text-xs">
-                    O prazo do SLA pode ser configurado em <strong>Configurações → SLA e Prazos</strong>. 
-                    Você também pode definir alertas automáticos quando reclamações estiverem perto de vencer.
-                  </p>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+        <h3 className="text-sm font-medium text-muted-foreground">Indicadores de SLA</h3>
         
         <div className="grid grid-cols-3 lg:grid-cols-4 gap-4">
           <Card className="border-green-500/30 bg-green-500/5">
