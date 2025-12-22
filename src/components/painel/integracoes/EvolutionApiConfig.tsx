@@ -13,7 +13,9 @@ import {
   Loader2,
   CheckCircle,
   XCircle,
-  Smartphone
+  Smartphone,
+  Settings,
+  Link
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -42,6 +44,8 @@ interface ConnectionState {
   statusReason?: number;
 }
 
+const WEBHOOK_URL = "https://sfsjtljhrelctpxpzody.supabase.co/functions/v1/receive-evolution-webhook";
+
 const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionApiConfigProps) => {
   const [apiUrl, setApiUrl] = useState(config.evolution_api_url || "");
   const [apiKey, setApiKey] = useState(config.evolution_api_key || "");
@@ -49,6 +53,8 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
   const [saving, setSaving] = useState(false);
   const [checkingConnection, setCheckingConnection] = useState(false);
   const [loadingQr, setLoadingQr] = useState(false);
+  const [configuringWebhook, setConfiguringWebhook] = useState(false);
+  const [webhookConfigured, setWebhookConfigured] = useState(false);
   const [qrCode, setQrCode] = useState<QrCodeData | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState | null>(null);
 
@@ -218,6 +224,51 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
       toast.error("Erro ao gerar QR Code. Verifique as configurações.");
     } finally {
       setLoadingQr(false);
+    }
+  };
+
+  const configureWebhook = async () => {
+    if (!config.evolution_api_url || !config.evolution_api_key || !config.evolution_instance_name) {
+      toast.error("Salve a configuração primeiro");
+      return;
+    }
+
+    setConfiguringWebhook(true);
+    setWebhookConfigured(false);
+
+    try {
+      // Configure webhook in Evolution API
+      const response = await fetch(
+        `${config.evolution_api_url}/webhook/set/${config.evolution_instance_name}`,
+        {
+          method: "POST",
+          headers: {
+            "apikey": config.evolution_api_key,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url: WEBHOOK_URL,
+            webhook_by_events: true,
+            webhook_base64: false,
+            events: [
+              "MESSAGES_UPSERT",
+            ],
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Erro ao configurar webhook");
+      }
+
+      setWebhookConfigured(true);
+      toast.success("Webhook configurado com sucesso! O sistema agora receberá mensagens automaticamente.");
+    } catch (error) {
+      console.error("Erro ao configurar webhook:", error);
+      toast.error("Erro ao configurar webhook. Verifique as configurações da Evolution API.");
+    } finally {
+      setConfiguringWebhook(false);
     }
   };
 
@@ -400,6 +451,58 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
         </Card>
       )}
 
+      {/* Webhook Configuration Card */}
+      {isConfigured && config.evolution_connected && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Link className="w-5 h-5" />
+                Configuração do Webhook
+              </span>
+              {webhookConfigured && (
+                <Badge variant="default" className="gap-1">
+                  <CheckCircle className="w-3 h-3" />
+                  Configurado
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Configure o webhook para receber mensagens automaticamente e processá-las como reclamações
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-3 rounded-lg bg-muted space-y-2">
+              <p className="text-sm font-medium">URL do Webhook:</p>
+              <code className="text-xs break-all">{WEBHOOK_URL}</code>
+            </div>
+
+            <Button
+              onClick={configureWebhook}
+              disabled={configuringWebhook}
+              className="w-full"
+            >
+              {configuringWebhook ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Settings className="w-4 h-4 mr-2" />
+              )}
+              Configurar Webhook Automaticamente
+            </Button>
+
+            <div className="text-sm text-muted-foreground space-y-2">
+              <p><strong>Como funciona:</strong></p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Cidadãos enviam mensagens para o WhatsApp conectado</li>
+                <li>Para registrar uma reclamação, devem enviar: <code className="bg-muted px-1 rounded">/reclamar [descrição]</code></li>
+                <li>O sistema cria a reclamação e responde com o protocolo</li>
+                <li>Mensagens normais recebem instruções de como usar o sistema</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Instructions Card */}
       <Card>
         <CardHeader>
@@ -461,7 +564,7 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
               <div>
                 <h4 className="font-medium">Configure o Webhook</h4>
                 <p className="text-sm text-muted-foreground">
-                  Na Evolution API, configure o webhook para enviar mensagens recebidas para nosso endpoint.
+                  Após conectar, clique em "Configurar Webhook Automaticamente" para ativar o recebimento de mensagens.
                 </p>
               </div>
             </div>
