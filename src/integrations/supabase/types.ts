@@ -442,6 +442,11 @@ export type Database = {
           created_at: string | null
           email_contato: string | null
           estado: string
+          evolution_api_key: string | null
+          evolution_api_url: string | null
+          evolution_connected: boolean | null
+          evolution_instance_name: string | null
+          evolution_phone: string | null
           id: string
           imagem_capa_url: string | null
           logo_url: string | null
@@ -460,6 +465,11 @@ export type Database = {
           created_at?: string | null
           email_contato?: string | null
           estado?: string
+          evolution_api_key?: string | null
+          evolution_api_url?: string | null
+          evolution_connected?: boolean | null
+          evolution_instance_name?: string | null
+          evolution_phone?: string | null
           id?: string
           imagem_capa_url?: string | null
           logo_url?: string | null
@@ -478,6 +488,11 @@ export type Database = {
           created_at?: string | null
           email_contato?: string | null
           estado?: string
+          evolution_api_key?: string | null
+          evolution_api_url?: string | null
+          evolution_connected?: boolean | null
+          evolution_instance_name?: string | null
+          evolution_phone?: string | null
           id?: string
           imagem_capa_url?: string | null
           logo_url?: string | null
