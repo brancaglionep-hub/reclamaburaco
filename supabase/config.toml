@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.webhooks-resend]
 verify_jwt = false
+
+[functions.receive-whatsapp-complaint]
+verify_jwt = false

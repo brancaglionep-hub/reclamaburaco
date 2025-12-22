@@ -31,6 +31,7 @@ import PainelAlertas from "./pages/painel/PainelAlertas";
 import PainelAlertasHistorico from "./pages/painel/PainelAlertasHistorico";
 import PainelCidadaos from "./pages/painel/PainelCidadaos";
 import PainelAvaliacoes from "./pages/painel/PainelAvaliacoes";
+import PainelIntegracoes from "./pages/painel/PainelIntegracoes";
 
 const Avaliar = lazy(() => import("./pages/Avaliar"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -88,6 +89,7 @@ const App = () => (
               <Route path="bairros" element={<PainelBairros />} />
               <Route path="categorias" element={<PainelCategorias />} />
               <Route path="configuracoes" element={<PainelConfiguracoes />} />
+              <Route path="integracoes" element={<PainelIntegracoes />} />
             </Route>
             
             {/* City page - must be LAST among dynamic routes */}

@@ -450,6 +450,7 @@ export type Database = {
           telefone_contato: string | null
           texto_institucional: string | null
           updated_at: string | null
+          webhook_secret: string | null
         }
         Insert: {
           ativo?: boolean | null
@@ -467,6 +468,7 @@ export type Database = {
           telefone_contato?: string | null
           texto_institucional?: string | null
           updated_at?: string | null
+          webhook_secret?: string | null
         }
         Update: {
           ativo?: boolean | null
@@ -484,6 +486,7 @@ export type Database = {
           telefone_contato?: string | null
           texto_institucional?: string | null
           updated_at?: string | null
+          webhook_secret?: string | null
         }
         Relationships: []
       }
@@ -730,6 +733,54 @@ export type Database = {
             columns: ["prefeitura_id"]
             isOneToOne: false
             referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          payload: Json
+          prefeitura_id: string
+          reclamacao_id: string | null
+          source: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          payload: Json
+          prefeitura_id: string
+          reclamacao_id?: string | null
+          source?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          payload?: Json
+          prefeitura_id?: string
+          reclamacao_id?: string | null
+          source?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_logs_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_logs_reclamacao_id_fkey"
+            columns: ["reclamacao_id"]
+            isOneToOne: false
+            referencedRelation: "reclamacoes"
             referencedColumns: ["id"]
           },
         ]
