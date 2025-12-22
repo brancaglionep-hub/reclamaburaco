@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.receive-whatsapp-complaint]
 verify_jwt = false
+
+[functions.receive-evolution-webhook]
+verify_jwt = false
