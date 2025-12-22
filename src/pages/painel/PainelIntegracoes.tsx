@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Copy, Check, RefreshCw, MessageCircle, Webhook, ExternalLink, Loader2 } from "lucide-react";
+import { Copy, Check, RefreshCw, MessageCircle, Webhook, ExternalLink, Loader2, Smartphone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import EvolutionApiConfig from "@/components/painel/integracoes/EvolutionApiConfig";
 
 interface WebhookLog {
   id: string;
@@ -26,6 +27,14 @@ interface WebhookLog {
   error_message: string | null;
   created_at: string;
   reclamacao_id: string | null;
+}
+
+interface EvolutionConfig {
+  evolution_api_url: string | null;
+  evolution_api_key: string | null;
+  evolution_instance_name: string | null;
+  evolution_connected: boolean;
+  evolution_phone: string | null;
 }
 
 interface OutletContextType {
@@ -37,6 +46,13 @@ const PainelIntegracoes = () => {
   const { prefeituraId } = useOutletContext<OutletContextType>();
   const [webhookSecret, setWebhookSecret] = useState<string>("");
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
+  const [evolutionConfig, setEvolutionConfig] = useState<EvolutionConfig>({
+    evolution_api_url: null,
+    evolution_api_key: null,
+    evolution_instance_name: null,
+    evolution_connected: false,
+    evolution_phone: null,
+  });
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -51,15 +67,24 @@ const PainelIntegracoes = () => {
 
   const fetchData = async () => {
     try {
-      // Buscar webhook secret
+      // Buscar configurações da prefeitura
       const { data: prefeitura } = await supabase
         .from("prefeituras")
-        .select("webhook_secret")
+        .select("webhook_secret, evolution_api_url, evolution_api_key, evolution_instance_name, evolution_connected, evolution_phone")
         .eq("id", prefeituraId)
         .single();
 
-      if (prefeitura?.webhook_secret) {
-        setWebhookSecret(prefeitura.webhook_secret);
+      if (prefeitura) {
+        if (prefeitura.webhook_secret) {
+          setWebhookSecret(prefeitura.webhook_secret);
+        }
+        setEvolutionConfig({
+          evolution_api_url: prefeitura.evolution_api_url,
+          evolution_api_key: prefeitura.evolution_api_key,
+          evolution_instance_name: prefeitura.evolution_instance_name,
+          evolution_connected: prefeitura.evolution_connected || false,
+          evolution_phone: prefeitura.evolution_phone,
+        });
       }
 
       // Buscar logs de webhook
@@ -150,17 +175,29 @@ const PainelIntegracoes = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="whatsapp" className="space-y-4">
+      <Tabs defaultValue="evolution" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="evolution" className="gap-2">
+            <Smartphone className="w-4 h-4" />
+            Evolution API
+          </TabsTrigger>
           <TabsTrigger value="whatsapp" className="gap-2">
             <MessageCircle className="w-4 h-4" />
-            WhatsApp / n8n
+            Webhook / n8n
           </TabsTrigger>
           <TabsTrigger value="logs" className="gap-2">
             <Webhook className="w-4 h-4" />
-            Logs de Webhook
+            Logs
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="evolution" className="space-y-4">
+          <EvolutionApiConfig 
+            prefeituraId={prefeituraId}
+            config={evolutionConfig}
+            onConfigUpdate={fetchData}
+          />
+        </TabsContent>
 
         <TabsContent value="whatsapp" className="space-y-4">
           {/* Credenciais */}
