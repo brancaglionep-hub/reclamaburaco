@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,6 +104,62 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
     return response;
   };
 
+  const checkConnectionSilent = useCallback(async () => {
+    if (!config.evolution_api_url || !config.evolution_api_key || !config.evolution_instance_name) {
+      return false;
+    }
+
+    try {
+      const response = await callEvolutionProxy(
+        `/instance/connectionState/{instanceName}`
+      );
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return false;
+      }
+
+      const isConnected = data.instance?.state === "open" || data.state === "open";
+
+      if (isConnected) {
+        setQrCode(null);
+        setConnectionState(data.instance || data);
+        toast.success("WhatsApp conectado com sucesso!");
+        onConfigUpdate();
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error("Erro ao verificar conexão:", error);
+      return false;
+    }
+  }, [config.evolution_api_url, config.evolution_api_key, config.evolution_instance_name, onConfigUpdate]);
+
+  // Auto-check connection every 30 seconds when QR code is displayed
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (qrCode?.base64 && !config.evolution_connected) {
+      // Start polling
+      pollingRef.current = setInterval(async () => {
+        const connected = await checkConnectionSilent();
+        if (connected && pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+      }, 30000);
+
+      return () => {
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+      };
+    }
+  }, [qrCode?.base64, config.evolution_connected, checkConnectionSilent]);
+
   const checkConnection = async () => {
     if (!config.evolution_api_url || !config.evolution_api_key || !config.evolution_instance_name) {
       toast.error("Salve a configuração primeiro");
@@ -129,6 +185,7 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
       const isConnected = data.instance?.state === "open" || data.state === "open";
 
       if (isConnected) {
+        setQrCode(null);
         toast.success("WhatsApp conectado!");
       } else {
         toast.info("WhatsApp não conectado. Escaneie o QR Code.");
