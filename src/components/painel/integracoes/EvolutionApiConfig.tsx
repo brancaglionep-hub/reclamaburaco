@@ -60,7 +60,16 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
   const [connectionState, setConnectionState] = useState<ConnectionState | null>(null);
   const [validatingUrl, setValidatingUrl] = useState(false);
 
-  const validateEvolutionUrl = async (url: string, key: string): Promise<{ valid: boolean; error?: string }> => {
+  const cleanEvolutionUrl = (url: string): string => {
+    let cleanUrl = url.trim().replace(/\/$/, "");
+    // Remove /manager suffix if present (that's the web UI, not the API)
+    if (cleanUrl.endsWith("/manager")) {
+      cleanUrl = cleanUrl.slice(0, -8);
+    }
+    return cleanUrl;
+  };
+
+  const validateEvolutionUrl = async (url: string, key: string): Promise<{ valid: boolean; error?: string; cleanedUrl?: string }> => {
     try {
       // Validate URL format
       const urlPattern = /^https?:\/\/.+/;
@@ -68,8 +77,10 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
         return { valid: false, error: "URL inválida. Deve começar com http:// ou https://" };
       }
 
+      // Clean the URL (remove trailing slash and /manager suffix)
+      const cleanUrl = cleanEvolutionUrl(url);
+
       // Test connection to Evolution API
-      const cleanUrl = url.replace(/\/$/, "");
       const response = await fetch(`${cleanUrl}/instance/fetchInstances`, {
         method: "GET",
         headers: {
@@ -86,7 +97,7 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
         return { valid: false, error: `Erro de conexão: ${response.status}` };
       }
 
-      return { valid: true };
+      return { valid: true, cleanedUrl: cleanUrl };
     } catch (error) {
       console.error("Erro ao validar URL:", error);
       if (error instanceof TypeError && error.message.includes("Failed to fetch")) {
@@ -120,10 +131,13 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
 
       toast.success("Conexão validada!");
 
+      // Use cleaned URL if available
+      const urlToSave = validation.cleanedUrl || apiUrl.replace(/\/$/, "");
+      
       const { error } = await supabase
         .from("prefeituras")
         .update({
-          evolution_api_url: apiUrl.replace(/\/$/, ""),
+          evolution_api_url: urlToSave,
           evolution_api_key: apiKey,
           evolution_instance_name: instanceName,
         })
