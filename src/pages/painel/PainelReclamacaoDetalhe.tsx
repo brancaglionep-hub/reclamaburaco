@@ -165,7 +165,8 @@ const PainelReclamacaoDetalhe = () => {
               categoria: reclamacao.categorias?.nome || null,
               prefeitura_nome: prefeituraData?.nome || "Prefeitura",
               prefeitura_id: prefeituraId,
-              avaliacao_token: avaliacaoToken
+              avaliacao_token: avaliacaoToken,
+              telefone: reclamacao.telefone_cidadao || null
             }
           });
           console.log("Email notification sent successfully");
