@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.criar-reclamacao-n8n]
 verify_jwt = false
+
+[functions.evolution-api-proxy]
+verify_jwt = false
