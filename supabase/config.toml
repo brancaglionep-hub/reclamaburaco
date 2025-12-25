@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.prefeitura-by-instance]
 verify_jwt = false
+
+[functions.criar-reclamacao-n8n]
+verify_jwt = false
