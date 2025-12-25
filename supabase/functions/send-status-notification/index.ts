@@ -22,6 +22,7 @@ interface StatusNotificationRequest {
   prefeitura_nome: string;
   prefeitura_id: string;
   avaliacao_token: string | null;
+  telefone?: string | null;
 }
 
 const statusLabels: Record<string, string> = {
@@ -37,6 +38,83 @@ const statusColors: Record<string, string> = {
   resolvida: "#22c55e",
   arquivada: "#6b7280"
 };
+
+const statusEmojis: Record<string, string> = {
+  recebida: "📥",
+  em_andamento: "🔄",
+  resolvida: "✅",
+  arquivada: "📁"
+};
+
+interface PrefeituraEvolution {
+  evolution_api_url: string | null;
+  evolution_api_key: string | null;
+  evolution_instance_name: string | null;
+  evolution_connected: boolean | null;
+}
+
+async function sendWhatsAppNotification(
+  prefeituraId: string,
+  phoneNumber: string,
+  message: string,
+  supabaseAdmin: any
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Get prefeitura Evolution API config
+    const { data, error: prefError } = await supabaseAdmin
+      .from('prefeituras')
+      .select('evolution_api_url, evolution_api_key, evolution_instance_name, evolution_connected')
+      .eq('id', prefeituraId)
+      .single();
+
+    const prefeitura = data as PrefeituraEvolution | null;
+
+    if (prefError || !prefeitura) {
+      console.log('Prefeitura not found for WhatsApp notification');
+      return { success: false, error: 'Prefeitura not found' };
+    }
+
+    if (!prefeitura.evolution_connected || !prefeitura.evolution_api_url || !prefeitura.evolution_api_key || !prefeitura.evolution_instance_name) {
+      console.log('WhatsApp not configured for this prefeitura');
+      return { success: false, error: 'WhatsApp not configured' };
+    }
+
+    // Clean phone number (remove non-digits)
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    
+    // Skip if phone looks like a WhatsApp email placeholder
+    if (cleanPhone.length < 10 || phoneNumber.includes('@whatsapp')) {
+      console.log('Invalid phone number for WhatsApp:', phoneNumber);
+      return { success: false, error: 'Invalid phone number' };
+    }
+
+    console.log(`Sending WhatsApp notification to ${cleanPhone} via ${prefeitura.evolution_instance_name}`);
+
+    const response = await fetch(`${prefeitura.evolution_api_url}/message/sendText/${prefeitura.evolution_instance_name}`, {
+      method: 'POST',
+      headers: {
+        'apikey': prefeitura.evolution_api_key,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        number: cleanPhone,
+        text: message
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('WhatsApp send error:', errorText);
+      return { success: false, error: errorText };
+    }
+
+    console.log('WhatsApp notification sent successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('WhatsApp notification error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
 
 const handler = async (req: Request): Promise<Response> => {
   console.log("Received request to send-status-notification");
@@ -294,7 +372,34 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Email sent successfully to:", data.email);
 
-    return new Response(JSON.stringify({ success: true, data: emailResponse.data }), {
+    // Send WhatsApp notification if phone number is available
+    let whatsappResult: { success: boolean; error?: string } = { success: false, error: 'No phone number' };
+    if (data.telefone) {
+      const statusEmoji = statusEmojis[data.status_novo] || "📋";
+      const whatsappMessage = 
+        `${statusEmoji} *Atualização da sua Reclamação*\n\n` +
+        `📋 *Protocolo:* ${data.protocolo}\n` +
+        `📍 *Local:* ${data.rua}${data.bairro ? `, ${data.bairro}` : ''}\n` +
+        `🔄 *Novo Status:* ${statusLabel}\n` +
+        (data.resposta ? `\n💬 *Resposta:*\n${data.resposta}\n` : '') +
+        (ratingLink ? `\n⭐ *Avalie nosso atendimento:*\n${ratingLink}\n` : '') +
+        `\n_${data.prefeitura_nome}_`;
+
+      whatsappResult = await sendWhatsAppNotification(
+        data.prefeitura_id,
+        data.telefone,
+        whatsappMessage,
+        supabaseAdmin
+      );
+      
+      console.log("WhatsApp notification result:", whatsappResult);
+    }
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      email: emailResponse.data,
+      whatsapp: whatsappResult
+    }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
