@@ -45,6 +45,7 @@ interface ConnectionState {
 }
 
 const WEBHOOK_URL = "https://sfsjtljhrelctpxpzody.supabase.co/functions/v1/receive-evolution-webhook";
+const PROXY_URL = "https://sfsjtljhrelctpxpzody.supabase.co/functions/v1/evolution-api-proxy";
 
 const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionApiConfigProps) => {
   const [apiUrl, setApiUrl] = useState(config.evolution_api_url || "");
@@ -87,6 +88,22 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
     }
   };
 
+  const callEvolutionProxy = async (endpoint: string, method = "GET", body?: object) => {
+    const response = await fetch(PROXY_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prefeituraId,
+        endpoint,
+        method,
+        body,
+      }),
+    });
+    return response;
+  };
+
   const checkConnection = async () => {
     if (!config.evolution_api_url || !config.evolution_api_key || !config.evolution_instance_name) {
       toast.error("Salve a configuração primeiro");
@@ -97,28 +114,19 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
     setConnectionState(null);
 
     try {
-      const response = await fetch(
-        `${config.evolution_api_url}/instance/connectionState/${config.evolution_instance_name}`,
-        {
-          headers: {
-            "apikey": config.evolution_api_key,
-          },
-        }
+      const response = await callEvolutionProxy(
+        `/instance/connectionState/{instanceName}`
       );
 
+      const data = await response.json();
+      
       if (!response.ok) {
-        throw new Error("Erro ao verificar conexão");
+        throw new Error(data.error || "Erro ao verificar conexão");
       }
 
-      const data = await response.json();
       setConnectionState(data.instance || data);
 
       const isConnected = data.instance?.state === "open" || data.state === "open";
-      
-      await supabase
-        .from("prefeituras")
-        .update({ evolution_connected: isConnected })
-        .eq("id", prefeituraId);
 
       if (isConnected) {
         toast.success("WhatsApp conectado!");
@@ -146,41 +154,29 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
 
     try {
       // First check if instance exists, if not create it
-      const instanceResponse = await fetch(
-        `${config.evolution_api_url}/instance/fetchInstances`,
-        {
-          headers: {
-            "apikey": config.evolution_api_key,
-          },
-        }
-      );
+      const instanceResponse = await callEvolutionProxy(`/instance/fetchInstances`);
 
       if (instanceResponse.ok) {
         const instances = await instanceResponse.json();
-        const instanceExists = instances.some((i: { name: string }) => i.name === config.evolution_instance_name);
+        const instanceExists = Array.isArray(instances) && instances.some((i: { name: string }) => i.name === config.evolution_instance_name);
 
         if (!instanceExists) {
           // Create instance
-          const createResponse = await fetch(
-            `${config.evolution_api_url}/instance/create`,
+          const createResponse = await callEvolutionProxy(
+            `/instance/create`,
+            "POST",
             {
-              method: "POST",
-              headers: {
-                "apikey": config.evolution_api_key,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                instanceName: config.evolution_instance_name,
-                qrcode: true,
-              }),
+              instanceName: config.evolution_instance_name,
+              qrcode: true,
             }
           );
 
+          const createData = await createResponse.json();
+          
           if (!createResponse.ok) {
-            throw new Error("Erro ao criar instância");
+            throw new Error(createData.error || "Erro ao criar instância");
           }
 
-          const createData = await createResponse.json();
           if (createData.qrcode?.base64) {
             setQrCode({ base64: createData.qrcode.base64 });
             toast.success("Instância criada! Escaneie o QR Code.");
@@ -191,30 +187,18 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
       }
 
       // Connect instance to get QR code
-      const connectResponse = await fetch(
-        `${config.evolution_api_url}/instance/connect/${config.evolution_instance_name}`,
-        {
-          headers: {
-            "apikey": config.evolution_api_key,
-          },
-        }
-      );
+      const connectResponse = await callEvolutionProxy(`/instance/connect/{instanceName}`);
+      const data = await connectResponse.json();
 
       if (!connectResponse.ok) {
-        throw new Error("Erro ao conectar instância");
+        throw new Error(data.error || "Erro ao conectar instância");
       }
-
-      const data = await connectResponse.json();
       
       if (data.base64 || data.qrcode?.base64) {
         setQrCode({ base64: data.base64 || data.qrcode?.base64 });
         toast.success("QR Code gerado! Escaneie com seu WhatsApp.");
       } else if (data.instance?.state === "open") {
         toast.success("WhatsApp já está conectado!");
-        await supabase
-          .from("prefeituras")
-          .update({ evolution_connected: true })
-          .eq("id", prefeituraId);
         onConfigUpdate();
       } else {
         toast.info("Aguarde um momento e tente novamente.");
@@ -237,29 +221,21 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
     setWebhookConfigured(false);
 
     try {
-      // Configure webhook in Evolution API
-      const response = await fetch(
-        `${config.evolution_api_url}/webhook/set/${config.evolution_instance_name}`,
+      const response = await callEvolutionProxy(
+        `/webhook/set/{instanceName}`,
+        "POST",
         {
-          method: "POST",
-          headers: {
-            "apikey": config.evolution_api_key,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            url: WEBHOOK_URL,
-            webhook_by_events: true,
-            webhook_base64: false,
-            events: [
-              "MESSAGES_UPSERT",
-            ],
-          }),
+          url: WEBHOOK_URL,
+          webhook_by_events: true,
+          webhook_base64: false,
+          events: ["MESSAGES_UPSERT"],
         }
       );
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Erro ao configurar webhook");
+        throw new Error(data.error || "Erro ao configurar webhook");
       }
 
       setWebhookConfigured(true);
