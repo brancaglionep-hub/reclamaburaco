@@ -146,13 +146,100 @@ Deno.serve(async (req) => {
       hasMedia: fotos.length > 0 || videos.length > 0,
     };
 
-    // Verificar se a mensagem contém informações suficientes para criar uma reclamação
-    // Formato esperado: "RECLAMAÇÃO: [descrição] | RUA: [rua] | BAIRRO: [bairro]"
-    // Ou comando: "/reclamar [descrição]"
+    // Verificar comandos especiais
+    const messageLower = messageText.toLowerCase().trim();
     
-    const isComplaintCommand = messageText.toLowerCase().startsWith('/reclamar ') || 
-                                messageText.toLowerCase().startsWith('reclamação:') ||
-                                messageText.toLowerCase().startsWith('reclamacao:');
+    // Comando: /consultar [protocolo]
+    const isConsultCommand = messageLower.startsWith('/consultar ') || messageLower.startsWith('/status ');
+    
+    if (isConsultCommand) {
+      const protocolo = messageText.substring(messageText.indexOf(' ') + 1).trim().toUpperCase();
+      
+      console.log('Consulta de protocolo:', protocolo);
+      
+      // Registrar consulta no log
+      await supabase.from('webhook_logs').insert({
+        prefeitura_id: prefeitura.id,
+        source: 'evolution',
+        payload: { ...logPayload, action: 'consulta', protocolo },
+        status: 'info',
+        error_message: null
+      });
+
+      // Buscar reclamação pelo protocolo
+      const { data: consultaResult, error: consultaError } = await supabase
+        .rpc('consultar_protocolo', {
+          _protocolo: protocolo,
+          _prefeitura_id: prefeitura.id
+        });
+
+      let responseText = '';
+      
+      if (consultaError || !consultaResult || consultaResult.length === 0) {
+        responseText = `❌ *Protocolo não encontrado*\n\n` +
+          `Não encontramos nenhuma reclamação com o protocolo *${protocolo}*.\n\n` +
+          `Verifique se digitou corretamente e tente novamente.`;
+      } else {
+        const rec = consultaResult[0];
+        
+        // Mapear status para texto amigável
+        const statusMap: Record<string, { emoji: string; texto: string }> = {
+          'recebida': { emoji: '📥', texto: 'Recebida' },
+          'em_andamento': { emoji: '🔄', texto: 'Em Andamento' },
+          'resolvida': { emoji: '✅', texto: 'Resolvida' },
+          'arquivada': { emoji: '📁', texto: 'Arquivada' }
+        };
+        
+        const statusInfo = statusMap[rec.status] || { emoji: '❓', texto: rec.status };
+        
+        // Formatar datas
+        const dataAbertura = new Date(rec.created_at).toLocaleDateString('pt-BR');
+        const dataAtualizacao = new Date(rec.updated_at).toLocaleDateString('pt-BR');
+        
+        responseText = `📋 *Consulta de Protocolo*\n\n` +
+          `🔖 *Protocolo:* ${rec.protocolo}\n` +
+          `${statusInfo.emoji} *Status:* ${statusInfo.texto}\n` +
+          `📍 *Local:* ${rec.rua}${rec.bairro_nome ? `, ${rec.bairro_nome}` : ''}\n` +
+          `🏷️ *Categoria:* ${rec.categoria_nome || 'Não especificada'}\n` +
+          `📅 *Abertura:* ${dataAbertura}\n` +
+          `🔄 *Atualização:* ${dataAtualizacao}\n`;
+        
+        if (rec.resposta_prefeitura) {
+          responseText += `\n💬 *Resposta da Prefeitura:*\n${rec.resposta_prefeitura}`;
+        }
+        
+        responseText += `\n\n_${prefeitura.nome}_`;
+      }
+
+      // Enviar resposta
+      if (prefeitura.evolution_api_url && prefeitura.evolution_api_key) {
+        try {
+          await fetch(`${prefeitura.evolution_api_url}/message/sendText/${body.instance}`, {
+            method: 'POST',
+            headers: {
+              'apikey': prefeitura.evolution_api_key,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              number: phoneNumber,
+              text: responseText
+            }),
+          });
+        } catch (sendError) {
+          console.error('Erro ao enviar resposta de consulta:', sendError);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, action: 'consulta', protocolo }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Comando: /reclamar ou reclamação:
+    const isComplaintCommand = messageLower.startsWith('/reclamar ') || 
+                                messageLower.startsWith('reclamação:') ||
+                                messageLower.startsWith('reclamacao:');
 
     if (!isComplaintCommand) {
       // Mensagem comum - apenas registrar e responder com instruções
@@ -176,10 +263,13 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               number: phoneNumber,
               text: `👋 Olá ${senderName}! Bem-vindo ao sistema de reclamações da ${prefeitura.nome}.\n\n` +
-                    `Para registrar uma reclamação, envie uma mensagem no formato:\n\n` +
+                    `📝 *Para registrar uma reclamação:*\n` +
                     `*/reclamar [sua reclamação aqui]*\n\n` +
+                    `🔍 *Para consultar o status:*\n` +
+                    `*/consultar [número do protocolo]*\n\n` +
                     `Exemplo:\n` +
-                    `*/reclamar Buraco na rua das Flores, número 123, Centro*\n\n` +
+                    `*/reclamar Buraco na rua das Flores, 123, Centro*\n` +
+                    `*/consultar REC-20250625-1234*\n\n` +
                     `Você também pode enviar fotos junto com a reclamação!`
             }),
           });
