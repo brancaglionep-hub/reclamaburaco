@@ -58,6 +58,46 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
   const [webhookConfigured, setWebhookConfigured] = useState(false);
   const [qrCode, setQrCode] = useState<QrCodeData | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState | null>(null);
+  const [validatingUrl, setValidatingUrl] = useState(false);
+
+  const validateEvolutionUrl = async (url: string, key: string): Promise<{ valid: boolean; error?: string }> => {
+    try {
+      // Validate URL format
+      const urlPattern = /^https?:\/\/.+/;
+      if (!urlPattern.test(url)) {
+        return { valid: false, error: "URL inválida. Deve começar com http:// ou https://" };
+      }
+
+      // Test connection to Evolution API
+      const cleanUrl = url.replace(/\/$/, "");
+      const response = await fetch(`${cleanUrl}/instance/fetchInstances`, {
+        method: "GET",
+        headers: {
+          "apikey": key,
+        },
+        signal: AbortSignal.timeout(10000), // 10 second timeout
+      });
+
+      if (response.status === 401) {
+        return { valid: false, error: "API Key inválida ou sem permissão" };
+      }
+
+      if (!response.ok) {
+        return { valid: false, error: `Erro de conexão: ${response.status}` };
+      }
+
+      return { valid: true };
+    } catch (error) {
+      console.error("Erro ao validar URL:", error);
+      if (error instanceof TypeError && error.message.includes("Failed to fetch")) {
+        return { valid: false, error: "Não foi possível conectar. Verifique a URL e se o servidor está acessível." };
+      }
+      if (error instanceof DOMException && error.name === "TimeoutError") {
+        return { valid: false, error: "Tempo limite excedido. O servidor não respondeu." };
+      }
+      return { valid: false, error: "Erro ao validar URL. Verifique se está correta." };
+    }
+  };
 
   const saveConfig = async () => {
     if (!apiUrl.trim() || !apiKey.trim() || !instanceName.trim()) {
@@ -66,7 +106,20 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
     }
 
     setSaving(true);
+    setValidatingUrl(true);
+
     try {
+      // Validate URL and API key first
+      toast.info("Validando conexão com a Evolution API...");
+      const validation = await validateEvolutionUrl(apiUrl.trim(), apiKey.trim());
+
+      if (!validation.valid) {
+        toast.error(validation.error || "URL inválida");
+        return;
+      }
+
+      toast.success("Conexão validada!");
+
       const { error } = await supabase
         .from("prefeituras")
         .update({
@@ -85,6 +138,7 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
       toast.error("Erro ao salvar configuração");
     } finally {
       setSaving(false);
+      setValidatingUrl(false);
     }
   };
 
@@ -363,13 +417,13 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
             </div>
 
             <div className="flex items-end">
-              <Button onClick={saveConfig} disabled={saving} className="w-full">
-                {saving ? (
+              <Button onClick={saveConfig} disabled={saving || validatingUrl} className="w-full">
+                {saving || validatingUrl ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
                   <Save className="w-4 h-4 mr-2" />
                 )}
-                Salvar Configuração
+                {validatingUrl ? "Validando..." : "Salvar Configuração"}
               </Button>
             </div>
           </div>
