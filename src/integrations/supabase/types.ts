@@ -884,6 +884,63 @@ export type Database = {
           },
         ]
       }
+      whatsapp_mensagens: {
+        Row: {
+          conteudo: string
+          conversa_id: string
+          created_at: string
+          direcao: string
+          enviado_por: string | null
+          id: string
+          lida: boolean | null
+          midia_url: string | null
+          operador_id: string | null
+          prefeitura_id: string
+          tipo: string
+        }
+        Insert: {
+          conteudo: string
+          conversa_id: string
+          created_at?: string
+          direcao: string
+          enviado_por?: string | null
+          id?: string
+          lida?: boolean | null
+          midia_url?: string | null
+          operador_id?: string | null
+          prefeitura_id: string
+          tipo?: string
+        }
+        Update: {
+          conteudo?: string
+          conversa_id?: string
+          created_at?: string
+          direcao?: string
+          enviado_por?: string | null
+          id?: string
+          lida?: boolean | null
+          midia_url?: string | null
+          operador_id?: string | null
+          prefeitura_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_mensagens_conversa_id_fkey"
+            columns: ["conversa_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_mensagens_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

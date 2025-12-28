@@ -33,6 +33,7 @@ import PainelAlertasHistorico from "./pages/painel/PainelAlertasHistorico";
 import PainelCidadaos from "./pages/painel/PainelCidadaos";
 import PainelAvaliacoes from "./pages/painel/PainelAvaliacoes";
 import PainelIntegracoes from "./pages/painel/PainelIntegracoes";
+import PainelWhatsApp from "./pages/painel/PainelWhatsApp";
 
 const Avaliar = lazy(() => import("./pages/Avaliar"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -92,6 +93,7 @@ const App = () => (
               <Route path="categorias" element={<PainelCategorias />} />
               <Route path="configuracoes" element={<PainelConfiguracoes />} />
               <Route path="integracoes" element={<PainelIntegracoes />} />
+              <Route path="whatsapp" element={<PainelWhatsApp />} />
             </Route>
             
             {/* City page - must be LAST among dynamic routes */}
