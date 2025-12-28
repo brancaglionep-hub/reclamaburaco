@@ -159,6 +159,50 @@ Deno.serve(async (req) => {
 
     console.log('Mensagem recebida:', { phoneNumber, senderName, messageText: messageText.substring(0, 100), localizacao: !!localizacao, fotos: fotos.length, videos: videos.length });
 
+    // Buscar ou criar conversa para salvar mensagem
+    let conversaId: string | null = null;
+    const { data: conversaExistente } = await supabase
+      .from('whatsapp_conversas')
+      .select('id')
+      .eq('prefeitura_id', prefeitura.id)
+      .eq('telefone', phoneNumber)
+      .single();
+
+    if (conversaExistente) {
+      conversaId = conversaExistente.id;
+    }
+
+    // Determinar tipo da mensagem
+    let tipoMensagem = 'texto';
+    let conteudoMensagem = messageText || '[Mensagem sem texto]';
+    let midiaUrl: string | null = null;
+
+    if (fotos.length > 0) {
+      tipoMensagem = 'imagem';
+      midiaUrl = fotos[0];
+      if (!messageText) conteudoMensagem = '[Imagem]';
+    } else if (videos.length > 0) {
+      tipoMensagem = 'video';
+      midiaUrl = videos[0];
+      if (!messageText) conteudoMensagem = '[Vídeo]';
+    } else if (localizacao) {
+      tipoMensagem = 'localizacao';
+      conteudoMensagem = `📍 Localização: ${localizacao.lat}, ${localizacao.lng}`;
+    }
+
+    // Salvar mensagem do cidadão se tiver conversa
+    if (conversaId) {
+      await supabase.from('whatsapp_mensagens').insert({
+        conversa_id: conversaId,
+        prefeitura_id: prefeitura.id,
+        direcao: 'entrada',
+        tipo: tipoMensagem,
+        conteudo: conteudoMensagem,
+        midia_url: midiaUrl,
+        enviado_por: 'cidadao',
+      });
+    }
+
     // Registrar no webhook_logs
     const logPayload = {
       event: body.event,
@@ -236,6 +280,18 @@ Deno.serve(async (req) => {
           console.error('Erro ao enviar resposta:', sendError);
         } else {
           console.log('Resposta enviada com sucesso');
+          
+          // Salvar mensagem de resposta (do agente ou operador)
+          if (conversaId) {
+            await supabase.from('whatsapp_mensagens').insert({
+              conversa_id: conversaId,
+              prefeitura_id: prefeitura.id,
+              direcao: 'saida',
+              tipo: 'texto',
+              conteudo: agentResult.resposta,
+              enviado_por: 'agente_ia',
+            });
+          }
         }
       } catch (sendError) {
         console.error('Erro ao enviar resposta:', sendError);
