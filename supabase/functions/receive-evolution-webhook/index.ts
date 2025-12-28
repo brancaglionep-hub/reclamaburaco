@@ -51,6 +51,9 @@ interface EvolutionMessage {
   apikey?: string;
 }
 
+const processedIncomingMessageIds = new Map<string, number>();
+const INCOMING_DEDUPE_TTL_MS = 2 * 60 * 1000;
+
 Deno.serve(async (req) => {
   console.log('=== Receive Evolution Webhook ===');
   console.log('Method:', req.method);
@@ -75,6 +78,24 @@ Deno.serve(async (req) => {
         JSON.stringify({ success: true, ignored: true, reason: 'Not an incoming message' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Deduplicar mensagens (Evolution pode reenviar o mesmo evento)
+    const incomingMessageId = body.data?.key?.id;
+    if (incomingMessageId) {
+      const now = Date.now();
+      // limpeza simples
+      for (const [id, ts] of processedIncomingMessageIds.entries()) {
+        if (now - ts > INCOMING_DEDUPE_TTL_MS) processedIncomingMessageIds.delete(id);
+      }
+      if (processedIncomingMessageIds.has(incomingMessageId)) {
+        console.log('Mensagem duplicada ignorada:', incomingMessageId);
+        return new Response(
+          JSON.stringify({ success: true, ignored: true, reason: 'Duplicate message' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      processedIncomingMessageIds.set(incomingMessageId, now);
     }
 
     // Buscar prefeitura pela instância

@@ -90,6 +90,74 @@ const TIPOS_PROBLEMA = [
   { id: 'outro', label: 'Outro problema', emoji: '❓' },
 ];
 
+function normText(input: string) {
+  return input
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function isPularMidia(textoNormalizado: string) {
+  if (!textoNormalizado) return false;
+  return [
+    'proximo',
+    'seguir',
+    'continuar',
+    'avancar',
+    'sem foto',
+    'sem fotos',
+    'sem midia',
+    'sem midias',
+    'nao',
+    'nao tenho',
+    'nao tenho foto',
+    'nao tenho fotos',
+    'nao tenho video',
+    'nao tenho videos',
+  ].includes(textoNormalizado);
+}
+
+function formatQtd(qtd: number, singular: string, plural: string) {
+  if (qtd === 1) return `1 ${singular}`;
+  return `${qtd} ${plural}`;
+}
+
+function buildResumoConfirmacao(args: {
+  dados: ConversaData['dados_coletados'];
+  fotos: number;
+  videos: number;
+  prefeituraNome: string;
+}) {
+  const { dados, fotos, videos, prefeituraNome } = args;
+
+  const tipoLabel = TIPOS_PROBLEMA.find((t) => t.id === dados.categoria)?.label || dados.categoria;
+  const midiaLinha =
+    fotos === 0 && videos === 0
+      ? 'Nenhuma'
+      : [
+          fotos > 0 ? formatQtd(fotos, 'foto enviada', 'fotos enviadas') : null,
+          videos > 0 ? formatQtd(videos, 'vídeo enviado', 'vídeos enviados') : null,
+        ]
+          .filter(Boolean)
+          .join(' e ');
+
+  return (
+    `📋 *Revisão da sua reclamação*\n\n` +
+    `*Nome:* ${dados.nome || '-'}\n` +
+    `*Email:* ${dados.email || '-'}\n` +
+    `*Telefone:* ${dados.telefone || '-'}\n` +
+    `*Bairro:* ${dados.bairro || '-'}\n` +
+    `*Rua:* ${dados.rua || '-'}${dados.numero ? ', ' + dados.numero : ''}\n` +
+    (dados.referencia ? `*Referência:* ${dados.referencia}\n` : '') +
+    `*Tipo do problema:* ${tipoLabel || '-'}\n` +
+    `*Descrição:* ${dados.descricao || '-'}\n` +
+    `*Mídia:* ${midiaLinha}\n\n` +
+    `Se estiver tudo certo, digite *confirmar* para enviar.\n` +
+    `_${prefeituraNome}_`
+  );
+}
+
 Deno.serve(async (req) => {
   console.log('=== WhatsApp AI Agent v2 - Fluxo Guiado ===');
 
@@ -203,13 +271,13 @@ Deno.serve(async (req) => {
 
     const conversaData = conversa as ConversaData;
 
-    // Atualizar mídias se recebidas
+    // Atualizar mídias se recebidas (evitar duplicação por reenvio do webhook)
     let midiasAtualizadas = { ...conversaData.midias_coletadas };
     if (mensagem.fotos.length > 0) {
-      midiasAtualizadas.fotos = [...midiasAtualizadas.fotos, ...mensagem.fotos];
+      midiasAtualizadas.fotos = Array.from(new Set([...midiasAtualizadas.fotos, ...mensagem.fotos]));
     }
     if (mensagem.videos.length > 0) {
-      midiasAtualizadas.videos = [...midiasAtualizadas.videos, ...mensagem.videos];
+      midiasAtualizadas.videos = Array.from(new Set([...midiasAtualizadas.videos, ...mensagem.videos]));
     }
 
     // Atualizar localização se recebida
@@ -358,7 +426,71 @@ Deno.serve(async (req) => {
       etapaAtual = 'confirmacao';
     }
 
-    const tiposProblemaTexto = TIPOS_PROBLEMA.map(t => `${t.emoji} ${t.label}`).join('\n');
+     const tiposProblemaTexto = TIPOS_PROBLEMA.map(t => `${t.emoji} ${t.label}`).join('\n');
+
+     // Ajustes de fluxo na etapa de mídia (evitar perguntas repetidas)
+     const textoNormalizado = normText(mensagem.texto || '');
+     const temNovaMidia = mensagem.fotos.length > 0 || mensagem.videos.length > 0;
+
+     if (etapaAtual === 'midia') {
+       // Se chegou mídia agora, apenas confirmar recebimento e orientar "próximo".
+       if (temNovaMidia) {
+         await supabase
+           .from('whatsapp_conversas')
+           .update({
+             estado: conversaData.estado,
+             midias_coletadas: midiasAtualizadas,
+             localizacao: localizacaoAtualizada,
+             ultima_mensagem_at: new Date().toISOString(),
+           })
+           .eq('id', conversaData.id);
+
+         const fotosTxt = midiasAtualizadas.fotos.length > 0
+           ? formatQtd(midiasAtualizadas.fotos.length, 'foto recebida', 'fotos recebidas')
+           : null;
+         const videosTxt = midiasAtualizadas.videos.length > 0
+           ? formatQtd(midiasAtualizadas.videos.length, 'vídeo recebido', 'vídeos recebidos')
+           : null;
+
+         const lista = [fotosTxt, videosTxt].filter(Boolean).join(' e ');
+
+         return new Response(
+           JSON.stringify({
+             resposta: `✅ Mídia recebida: ${lista}.\n\nSe quiser enviar mais, pode mandar agora. Se não, digite *próximo* para revisar.`,
+             acao: 'continuar',
+             protocolo: null,
+           }),
+           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+         );
+       }
+
+       // Se o cidadão disser "não"/"próximo"/"seguir", ir direto para revisão.
+       if (isPularMidia(textoNormalizado)) {
+         await supabase
+           .from('whatsapp_conversas')
+           .update({
+             estado: 'confirmando',
+             midias_coletadas: midiasAtualizadas,
+             localizacao: localizacaoAtualizada,
+             ultima_mensagem_at: new Date().toISOString(),
+           })
+           .eq('id', conversaData.id);
+
+         return new Response(
+           JSON.stringify({
+             resposta: buildResumoConfirmacao({
+               dados: conversaData.dados_coletados,
+               fotos: midiasAtualizadas.fotos.length,
+               videos: midiasAtualizadas.videos.length,
+               prefeituraNome: prefeitura.nome,
+             }),
+             acao: 'continuar',
+             protocolo: null,
+           }),
+           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+         );
+       }
+     }
 
     const systemPrompt = `Você é a assistente virtual da ${prefeitura.nome} (${prefeitura.cidade}/${prefeitura.estado}).
 Você ajuda os cidadãos a registrar reclamações sobre problemas na cidade.
@@ -574,15 +706,14 @@ ${categorias.map(c => `- ${c.nome} (id: ${c.id})`).join('\n')}
           })
           .eq('id', conversaData.id);
 
-        aiResult.resposta = `✅ *Reclamação Registrada!*\n\n` +
-          `📋 *Protocolo:* ${reclamacaoCriada.protocolo}\n\n` +
-          `📍 *Local:* ${dadosAtualizados.rua}${dadosAtualizados.numero ? ', ' + dadosAtualizados.numero : ''}${dadosAtualizados.bairro ? ' - ' + dadosAtualizados.bairro : ''}\n` +
-          `🏷️ *Problema:* ${dadosAtualizados.categoria || dadosAtualizados.descricao?.substring(0, 50)}\n` +
-          `📷 *Mídia:* ${midiasAtualizadas.fotos.length} foto(s), ${midiasAtualizadas.videos.length} vídeo(s)\n\n` +
-          `Guarde este protocolo! Para acompanhar:\n` +
-          `👉 *consultar ${reclamacaoCriada.protocolo}*\n\n` +
-          `Obrigado por ajudar a melhorar nossa cidade! 🌆\n\n` +
-          `_${prefeitura.nome}_`;
+         aiResult.resposta = `✅ Reclamação registrada com sucesso.\n\n` +
+           `📋 *Protocolo:* ${reclamacaoCriada.protocolo}\n\n` +
+           `📍 *Local:* ${dadosAtualizados.rua}${dadosAtualizados.numero ? ', ' + dadosAtualizados.numero : ''}${dadosAtualizados.bairro ? ' - ' + dadosAtualizados.bairro : ''}\n` +
+           `🏷️ *Problema:* ${dadosAtualizados.categoria || dadosAtualizados.descricao?.substring(0, 50)}\n` +
+           `📷 *Mídia:* ${midiasAtualizadas.fotos.length} foto(s), ${midiasAtualizadas.videos.length} vídeo(s)\n\n` +
+           `Para acompanhar, digite:\n` +
+           `👉 *consultar ${reclamacaoCriada.protocolo}*\n\n` +
+           `_${prefeitura.nome}_`;
       }
     } else {
       // Atualizar conversa com novos dados
