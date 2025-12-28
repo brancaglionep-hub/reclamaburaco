@@ -824,6 +824,66 @@ export type Database = {
           },
         ]
       }
+      whatsapp_conversas: {
+        Row: {
+          created_at: string
+          dados_coletados: Json
+          estado: string
+          id: string
+          localizacao: Json | null
+          midias_coletadas: Json
+          nome_cidadao: string | null
+          prefeitura_id: string
+          reclamacao_id: string | null
+          telefone: string
+          ultima_mensagem_at: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dados_coletados?: Json
+          estado?: string
+          id?: string
+          localizacao?: Json | null
+          midias_coletadas?: Json
+          nome_cidadao?: string | null
+          prefeitura_id: string
+          reclamacao_id?: string | null
+          telefone: string
+          ultima_mensagem_at?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dados_coletados?: Json
+          estado?: string
+          id?: string
+          localizacao?: Json | null
+          midias_coletadas?: Json
+          nome_cidadao?: string | null
+          prefeitura_id?: string
+          reclamacao_id?: string | null
+          telefone?: string
+          ultima_mensagem_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversas_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversas_reclamacao_id_fkey"
+            columns: ["reclamacao_id"]
+            isOneToOne: false
+            referencedRelation: "reclamacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
