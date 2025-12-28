@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
-import { Building2, LayoutDashboard, Users, LogOut, Menu, X, Tags } from "lucide-react";
+import { Building2, LayoutDashboard, Users, LogOut, Menu, X, Tags, Plug } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -52,6 +52,7 @@ const AdminLayout = () => {
     { path: "/admin/prefeituras", label: "Prefeituras", icon: Building2 },
     { path: "/admin/usuarios", label: "Usuários", icon: Users },
     { path: "/admin/categorias", label: "Categorias", icon: Tags },
+    { path: "/admin/integracoes", label: "Integrações", icon: Plug },
   ];
 
   if (loading) {

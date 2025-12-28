@@ -16,6 +16,7 @@ const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminPrefeituras = lazy(() => import("./pages/admin/AdminPrefeituras"));
 const AdminUsuarios = lazy(() => import("./pages/admin/AdminUsuarios"));
 const AdminCategorias = lazy(() => import("./pages/admin/AdminCategorias"));
+const AdminIntegracoes = lazy(() => import("./pages/admin/AdminIntegracoes"));
 
 // Lazy load painel layout
 const PainelLayout = lazy(() => import("./components/painel/PainelLayout"));
@@ -75,6 +76,7 @@ const App = () => (
               <Route path="prefeituras" element={<AdminPrefeituras />} />
               <Route path="usuarios" element={<AdminUsuarios />} />
               <Route path="categorias" element={<AdminCategorias />} />
+              <Route path="integracoes" element={<AdminIntegracoes />} />
             </Route>
             
             {/* Painel Prefeitura Routes */}
