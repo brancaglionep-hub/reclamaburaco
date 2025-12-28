@@ -60,6 +60,16 @@ async function sendWhatsAppNotification(
   supabaseAdmin: any
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // First check for global Evolution API config
+    const { data: globalConfig } = await supabaseAdmin
+      .from('configuracoes_sistema')
+      .select('valor')
+      .eq('chave', 'evolution_api')
+      .single();
+
+    let evolutionUrl = '';
+    let evolutionKey = '';
+
     // Get prefeitura Evolution API config
     const { data, error: prefError } = await supabaseAdmin
       .from('prefeituras')
@@ -74,9 +84,27 @@ async function sendWhatsAppNotification(
       return { success: false, error: 'Prefeitura not found' };
     }
 
-    if (!prefeitura.evolution_connected || !prefeitura.evolution_api_url || !prefeitura.evolution_api_key || !prefeitura.evolution_instance_name) {
+    if (!prefeitura.evolution_connected || !prefeitura.evolution_instance_name) {
       console.log('WhatsApp not configured for this prefeitura');
       return { success: false, error: 'WhatsApp not configured' };
+    }
+
+    // Use global config first, then fallback to prefeitura config
+    if (globalConfig?.valor) {
+      const config = globalConfig.valor as { url?: string; api_key?: string };
+      evolutionUrl = config.url || '';
+      evolutionKey = config.api_key || '';
+    }
+    if (!evolutionUrl && prefeitura.evolution_api_url) {
+      evolutionUrl = prefeitura.evolution_api_url;
+    }
+    if (!evolutionKey && prefeitura.evolution_api_key) {
+      evolutionKey = prefeitura.evolution_api_key;
+    }
+
+    if (!evolutionUrl || !evolutionKey) {
+      console.log('Evolution API URL or Key not configured');
+      return { success: false, error: 'Evolution API not configured' };
     }
 
     // Clean phone number (remove non-digits)
@@ -89,11 +117,12 @@ async function sendWhatsAppNotification(
     }
 
     console.log(`Sending WhatsApp notification to ${cleanPhone} via ${prefeitura.evolution_instance_name}`);
+    console.log(`Using Evolution URL: ${evolutionUrl}`);
 
-    const response = await fetch(`${prefeitura.evolution_api_url}/message/sendText/${prefeitura.evolution_instance_name}`, {
+    const response = await fetch(`${evolutionUrl}/message/sendText/${prefeitura.evolution_instance_name}`, {
       method: 'POST',
       headers: {
-        'apikey': prefeitura.evolution_api_key,
+        'apikey': evolutionKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
