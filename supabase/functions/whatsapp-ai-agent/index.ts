@@ -118,6 +118,33 @@ function isPularMidia(textoNormalizado: string) {
   ].includes(textoNormalizado);
 }
 
+function isSaudacao(textoNormalizado: string) {
+  if (!textoNormalizado) return false;
+  return [
+    'oi',
+    'ola',
+    'olá',
+    'bom dia',
+    'boa tarde',
+    'boa noite',
+    'e ai',
+    'eai',
+  ].includes(textoNormalizado);
+}
+
+function isConfirmacao(textoNormalizado: string) {
+  if (!textoNormalizado) return false;
+  return [
+    'confirmar',
+    'confirmo',
+    'sim',
+    's',
+    'ok',
+    'pode enviar',
+    'enviar',
+  ].includes(textoNormalizado) || textoNormalizado.startsWith('confirm');
+}
+
 function formatQtd(qtd: number, singular: string, plural: string) {
   if (qtd === 1) return `1 ${singular}`;
   return `${qtd} ${plural}`;
@@ -428,69 +455,216 @@ Deno.serve(async (req) => {
 
      const tiposProblemaTexto = TIPOS_PROBLEMA.map(t => `${t.emoji} ${t.label}`).join('\n');
 
-     // Ajustes de fluxo na etapa de mídia (evitar perguntas repetidas)
-     const textoNormalizado = normText(mensagem.texto || '');
-     const temNovaMidia = mensagem.fotos.length > 0 || mensagem.videos.length > 0;
+      // Ajustes de fluxo na etapa de mídia (evitar perguntas repetidas)
+      const textoNormalizado = normText(mensagem.texto || '');
+      const temNovaMidia = mensagem.fotos.length > 0 || mensagem.videos.length > 0;
 
-     if (etapaAtual === 'midia') {
-       // Se chegou mídia agora, apenas confirmar recebimento e orientar "próximo".
-       if (temNovaMidia) {
-         await supabase
-           .from('whatsapp_conversas')
-           .update({
-             estado: conversaData.estado,
-             midias_coletadas: midiasAtualizadas,
-             localizacao: localizacaoAtualizada,
-             ultima_mensagem_at: new Date().toISOString(),
-           })
-           .eq('id', conversaData.id);
+      // Saudação: reconhecer cidadão no primeiro "olá" e só pedir nome quando for novo.
+      if (
+        conversaData.estado === 'inicio' &&
+        isSaudacao(textoNormalizado) &&
+        !temNovaMidia &&
+        !mensagem.localizacao
+      ) {
+        const respostaSaudacao = cidadaoExistente?.nome
+          ? `Olá, *${cidadaoExistente.nome}*! 😊 Já te reconheci por aqui.\n\nMe diga o *bairro* e a *rua* onde está o problema.`
+          : `Olá! 😊 Para começar seu cadastro, qual é o seu *nome completo*?`;
 
-         const fotosTxt = midiasAtualizadas.fotos.length > 0
-           ? formatQtd(midiasAtualizadas.fotos.length, 'foto recebida', 'fotos recebidas')
-           : null;
-         const videosTxt = midiasAtualizadas.videos.length > 0
-           ? formatQtd(midiasAtualizadas.videos.length, 'vídeo recebido', 'vídeos recebidos')
-           : null;
+        await supabase
+          .from('whatsapp_conversas')
+          .update({
+            estado: 'coletando_dados',
+            midias_coletadas: midiasAtualizadas,
+            localizacao: localizacaoAtualizada,
+            ultima_mensagem_at: new Date().toISOString(),
+          })
+          .eq('id', conversaData.id);
 
-         const lista = [fotosTxt, videosTxt].filter(Boolean).join(' e ');
+        return new Response(
+          JSON.stringify({
+            resposta: respostaSaudacao,
+            acao: 'continuar',
+            protocolo: null,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
-         return new Response(
-           JSON.stringify({
-             resposta: `✅ Mídia recebida: ${lista}.\n\nSe quiser enviar mais, pode mandar agora. Se não, digite *próximo* para revisar.`,
-             acao: 'continuar',
-             protocolo: null,
-           }),
-           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-         );
-       }
+      if (etapaAtual === 'midia') {
+        // Se chegou mídia agora, apenas confirmar recebimento e orientar "próximo".
+        if (temNovaMidia) {
+          await supabase
+            .from('whatsapp_conversas')
+            .update({
+              estado: conversaData.estado,
+              midias_coletadas: midiasAtualizadas,
+              localizacao: localizacaoAtualizada,
+              ultima_mensagem_at: new Date().toISOString(),
+            })
+            .eq('id', conversaData.id);
 
-       // Se o cidadão disser "não"/"próximo"/"seguir", ir direto para revisão.
-       if (isPularMidia(textoNormalizado)) {
-         await supabase
-           .from('whatsapp_conversas')
-           .update({
-             estado: 'confirmando',
-             midias_coletadas: midiasAtualizadas,
-             localizacao: localizacaoAtualizada,
-             ultima_mensagem_at: new Date().toISOString(),
-           })
-           .eq('id', conversaData.id);
+          const fotosTxt = midiasAtualizadas.fotos.length > 0
+            ? formatQtd(midiasAtualizadas.fotos.length, 'foto recebida', 'fotos recebidas')
+            : null;
+          const videosTxt = midiasAtualizadas.videos.length > 0
+            ? formatQtd(midiasAtualizadas.videos.length, 'vídeo recebido', 'vídeos recebidos')
+            : null;
 
-         return new Response(
-           JSON.stringify({
-             resposta: buildResumoConfirmacao({
-               dados: conversaData.dados_coletados,
-               fotos: midiasAtualizadas.fotos.length,
-               videos: midiasAtualizadas.videos.length,
-               prefeituraNome: prefeitura.nome,
-             }),
-             acao: 'continuar',
-             protocolo: null,
-           }),
-           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-         );
-       }
-     }
+          const lista = [fotosTxt, videosTxt].filter(Boolean).join(' e ');
+
+          return new Response(
+            JSON.stringify({
+              resposta: `✅ Mídia recebida: ${lista}.\n\nSe quiser enviar mais, pode mandar agora. Se não, digite *próximo* para revisar.`,
+              acao: 'continuar',
+              protocolo: null,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Se o cidadão disser "não"/"próximo"/"seguir", ir direto para revisão.
+        if (isPularMidia(textoNormalizado)) {
+          await supabase
+            .from('whatsapp_conversas')
+            .update({
+              estado: 'confirmando',
+              midias_coletadas: midiasAtualizadas,
+              localizacao: localizacaoAtualizada,
+              ultima_mensagem_at: new Date().toISOString(),
+            })
+            .eq('id', conversaData.id);
+
+          return new Response(
+            JSON.stringify({
+              resposta: buildResumoConfirmacao({
+                dados: conversaData.dados_coletados,
+                fotos: midiasAtualizadas.fotos.length,
+                videos: midiasAtualizadas.videos.length,
+                prefeituraNome: prefeitura.nome,
+              }),
+              acao: 'continuar',
+              protocolo: null,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+
+      // Confirmação: evitar mandar a revisão 2x. Quando o cidadão digitar confirmar/sim, cria a reclamação direto.
+      if (conversaData.estado === 'confirmando') {
+        if (!isConfirmacao(textoNormalizado)) {
+          return new Response(
+            JSON.stringify({
+              resposta: buildResumoConfirmacao({
+                dados: conversaData.dados_coletados,
+                fotos: midiasAtualizadas.fotos.length,
+                videos: midiasAtualizadas.videos.length,
+                prefeituraNome: prefeitura.nome,
+              }),
+              acao: 'continuar',
+              protocolo: null,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const dadosConfirmacao = { ...conversaData.dados_coletados } as Record<string, string>;
+        if (!dadosConfirmacao.telefone) dadosConfirmacao.telefone = telefoneLimpo;
+
+        const camposObrigatorios = ['nome', 'email', 'rua', 'bairro', 'descricao'] as const;
+        const faltando = camposObrigatorios.filter((c) => !dadosConfirmacao[c]);
+
+        if (faltando.length > 0) {
+          await supabase
+            .from('whatsapp_conversas')
+            .update({
+              estado: 'coletando_dados',
+              ultima_mensagem_at: new Date().toISOString(),
+            })
+            .eq('id', conversaData.id);
+
+          return new Response(
+            JSON.stringify({
+              resposta: `⚠️ Antes de enviar, faltou informar: *${faltando.join(', ')}*.\n\nPode me mandar esses dados agora?`,
+              acao: 'continuar',
+              protocolo: null,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: reclamacao, error: recError } = await supabase.rpc('criar_reclamacao_publica', {
+          _prefeitura_id: prefeitura.id,
+          _nome_cidadao: dadosConfirmacao.nome || mensagem.nome,
+          _email_cidadao: dadosConfirmacao.email || `${telefoneLimpo}@whatsapp.temp`,
+          _telefone_cidadao: telefoneLimpo,
+          _rua: dadosConfirmacao.rua,
+          _numero: dadosConfirmacao.numero || null,
+          _bairro_id: dadosConfirmacao.bairro_id || null,
+          _categoria_id: dadosConfirmacao.categoria_id || null,
+          _referencia: dadosConfirmacao.referencia || null,
+          _descricao: dadosConfirmacao.descricao,
+          _localizacao: localizacaoAtualizada,
+          _fotos: midiasAtualizadas.fotos,
+          _videos: midiasAtualizadas.videos,
+        });
+
+        if (recError) {
+          console.error('Erro ao criar reclamação (confirmacao):', recError);
+          return new Response(
+            JSON.stringify({
+              resposta: `❌ Desculpe, ocorreu um erro ao registrar sua reclamação.\n\nPor favor, tente novamente em alguns instantes.`,
+              acao: 'continuar',
+              protocolo: null,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const reclamacaoCriada = reclamacao?.[0];
+
+        const { data: recCriada } = await supabase
+          .from('reclamacoes')
+          .select('id')
+          .eq('protocolo', reclamacaoCriada.protocolo)
+          .single();
+
+        await supabase
+          .from('whatsapp_conversas')
+          .update({
+            estado: 'inicio',
+            dados_coletados: {
+              nome: dadosConfirmacao.nome,
+              email: dadosConfirmacao.email,
+              telefone: telefoneLimpo,
+              bairro: dadosConfirmacao.bairro,
+              bairro_id: dadosConfirmacao.bairro_id,
+            },
+            midias_coletadas: { fotos: [], videos: [] },
+            localizacao: null,
+            ultima_mensagem_at: new Date().toISOString(),
+            reclamacao_id: recCriada?.id || null,
+          })
+          .eq('id', conversaData.id);
+
+        const respostaFinal = `✅ Reclamação registrada com sucesso.\n\n` +
+          `📋 *Protocolo:* ${reclamacaoCriada.protocolo}\n\n` +
+          `📍 *Local:* ${dadosConfirmacao.rua}${dadosConfirmacao.numero ? ', ' + dadosConfirmacao.numero : ''}${dadosConfirmacao.bairro ? ' - ' + dadosConfirmacao.bairro : ''}\n` +
+          `🏷️ *Problema:* ${dadosConfirmacao.categoria || dadosConfirmacao.descricao?.substring(0, 50)}\n` +
+          `📷 *Mídia:* ${midiasAtualizadas.fotos.length} foto(s), ${midiasAtualizadas.videos.length} vídeo(s)\n\n` +
+          `Para acompanhar, digite:\n` +
+          `👉 *consultar ${reclamacaoCriada.protocolo}*\n\n` +
+          `_${prefeitura.nome}_`;
+
+        return new Response(
+          JSON.stringify({
+            resposta: respostaFinal,
+            acao: 'reclamacao_criada',
+            protocolo: reclamacaoCriada.protocolo,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
     const systemPrompt = `Você é a assistente virtual da ${prefeitura.nome} (${prefeitura.cidade}/${prefeitura.estado}).
 Você ajuda os cidadãos a registrar reclamações sobre problemas na cidade.

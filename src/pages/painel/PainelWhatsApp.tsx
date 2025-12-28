@@ -627,9 +627,29 @@ const PainelWhatsApp = () => {
                             </p>
                           )}
                           <p className="whitespace-pre-wrap break-words">{msg.conteudo}</p>
-                          <p className={`text-xs mt-1 ${
-                            msg.direcao === "saida" ? "text-primary-foreground/70" : "text-muted-foreground"
-                          }`}>
+                          {msg.midia_url && (
+                            <div className="mt-2">
+                              <a
+                                href={msg.midia_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`text-xs underline underline-offset-4 ${
+                                  msg.direcao === "saida"
+                                    ? "text-primary-foreground/90"
+                                    : "text-foreground"
+                                }`}
+                              >
+                                Abrir {msg.tipo === "imagem" ? "imagem" : msg.tipo === "video" ? "vídeo" : "mídia"}
+                              </a>
+                            </div>
+                          )}
+                          <p
+                            className={`text-xs mt-1 ${
+                              msg.direcao === "saida"
+                                ? "text-primary-foreground/70"
+                                : "text-muted-foreground"
+                            }`}
+                          >
                             {format(new Date(msg.created_at), "HH:mm", { locale: ptBR })}
                           </p>
                         </div>
