@@ -18,7 +18,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const { prefeituraId, endpoint, method = "GET", body } = await req.json();
+    const { prefeituraId, endpoint, method = "GET", body, useGlobalConfig, instanceName } = await req.json();
 
     if (!prefeituraId || !endpoint) {
       return new Response(
@@ -27,21 +27,59 @@ serve(async (req) => {
       );
     }
 
-    // Fetch Evolution API config from prefeitura
-    const { data: prefeitura, error: prefError } = await supabaseClient
-      .from("prefeituras")
-      .select("evolution_api_url, evolution_api_key, evolution_instance_name")
-      .eq("id", prefeituraId)
-      .single();
+    let evolution_api_url: string | null = null;
+    let evolution_api_key: string | null = null;
+    let evolution_instance_name: string | null = instanceName || null;
 
-    if (prefError || !prefeitura) {
-      return new Response(
-        JSON.stringify({ error: "Prefeitura não encontrada" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Check if we should use global config
+    if (useGlobalConfig) {
+      // Fetch global Evolution API config
+      const { data: configData, error: configError } = await supabaseClient
+        .from("configuracoes_sistema")
+        .select("valor")
+        .eq("chave", "evolution_api")
+        .single();
+
+      if (configError || !configData) {
+        return new Response(
+          JSON.stringify({ error: "Configuração global da Evolution API não encontrada" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const globalConfig = configData.valor as { url: string | null; api_key: string | null };
+      evolution_api_url = globalConfig.url;
+      evolution_api_key = globalConfig.api_key;
+
+      // If no instance name provided, try to get from prefeitura
+      if (!evolution_instance_name) {
+        const { data: prefeitura } = await supabaseClient
+          .from("prefeituras")
+          .select("evolution_instance_name")
+          .eq("id", prefeituraId)
+          .single();
+
+        evolution_instance_name = prefeitura?.evolution_instance_name || null;
+      }
+    } else {
+      // Fetch Evolution API config from prefeitura (legacy mode)
+      const { data: prefeitura, error: prefError } = await supabaseClient
+        .from("prefeituras")
+        .select("evolution_api_url, evolution_api_key, evolution_instance_name")
+        .eq("id", prefeituraId)
+        .single();
+
+      if (prefError || !prefeitura) {
+        return new Response(
+          JSON.stringify({ error: "Prefeitura não encontrada" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      evolution_api_url = prefeitura.evolution_api_url;
+      evolution_api_key = prefeitura.evolution_api_key;
+      evolution_instance_name = prefeitura.evolution_instance_name;
     }
-
-    const { evolution_api_url, evolution_api_key, evolution_instance_name } = prefeitura;
 
     if (!evolution_api_url || !evolution_api_key) {
       return new Response(
@@ -51,7 +89,11 @@ serve(async (req) => {
     }
 
     // Replace placeholders in endpoint
-    const finalEndpoint = endpoint.replace("{instanceName}", evolution_instance_name || "");
+    let finalEndpoint = endpoint;
+    if (evolution_instance_name) {
+      finalEndpoint = endpoint.replace("{instanceName}", evolution_instance_name);
+    }
+    
     const url = `${evolution_api_url.replace(/\/$/, "")}${finalEndpoint}`;
 
     console.log(`Proxying request to: ${url}`);

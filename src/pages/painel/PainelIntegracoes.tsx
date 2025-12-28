@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/table";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import EvolutionApiConfig from "@/components/painel/integracoes/EvolutionApiConfig";
+import EvolutionQrConnect from "@/components/painel/integracoes/EvolutionQrConnect";
 
 interface WebhookLog {
   id: string;
@@ -29,12 +29,11 @@ interface WebhookLog {
   reclamacao_id: string | null;
 }
 
-interface EvolutionConfig {
-  evolution_api_url: string | null;
-  evolution_api_key: string | null;
-  evolution_instance_name: string | null;
+interface PrefeituraData {
+  slug: string;
   evolution_connected: boolean;
   evolution_phone: string | null;
+  webhook_secret: string | null;
 }
 
 interface OutletContextType {
@@ -46,13 +45,7 @@ const PainelIntegracoes = () => {
   const { prefeituraId } = useOutletContext<OutletContextType>();
   const [webhookSecret, setWebhookSecret] = useState<string>("");
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
-  const [evolutionConfig, setEvolutionConfig] = useState<EvolutionConfig>({
-    evolution_api_url: null,
-    evolution_api_key: null,
-    evolution_instance_name: null,
-    evolution_connected: false,
-    evolution_phone: null,
-  });
+  const [prefeituraData, setPrefeituraData] = useState<PrefeituraData | null>(null);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -70,21 +63,20 @@ const PainelIntegracoes = () => {
       // Buscar configurações da prefeitura
       const { data: prefeitura } = await supabase
         .from("prefeituras")
-        .select("webhook_secret, evolution_api_url, evolution_api_key, evolution_instance_name, evolution_connected, evolution_phone")
+        .select("slug, webhook_secret, evolution_connected, evolution_phone")
         .eq("id", prefeituraId)
         .single();
 
       if (prefeitura) {
+        setPrefeituraData({
+          slug: prefeitura.slug,
+          evolution_connected: prefeitura.evolution_connected || false,
+          evolution_phone: prefeitura.evolution_phone,
+          webhook_secret: prefeitura.webhook_secret,
+        });
         if (prefeitura.webhook_secret) {
           setWebhookSecret(prefeitura.webhook_secret);
         }
-        setEvolutionConfig({
-          evolution_api_url: prefeitura.evolution_api_url,
-          evolution_api_key: prefeitura.evolution_api_key,
-          evolution_instance_name: prefeitura.evolution_instance_name,
-          evolution_connected: prefeitura.evolution_connected || false,
-          evolution_phone: prefeitura.evolution_phone,
-        });
       }
 
       // Buscar logs de webhook
@@ -175,13 +167,13 @@ const PainelIntegracoes = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="evolution" className="space-y-4">
+      <Tabs defaultValue="whatsapp" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="evolution" className="gap-2">
-            <Smartphone className="w-4 h-4" />
-            Evolution API
-          </TabsTrigger>
           <TabsTrigger value="whatsapp" className="gap-2">
+            <Smartphone className="w-4 h-4" />
+            WhatsApp
+          </TabsTrigger>
+          <TabsTrigger value="webhook" className="gap-2">
             <MessageCircle className="w-4 h-4" />
             Webhook / n8n
           </TabsTrigger>
@@ -191,15 +183,19 @@ const PainelIntegracoes = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="evolution" className="space-y-4">
-          <EvolutionApiConfig 
-            prefeituraId={prefeituraId}
-            config={evolutionConfig}
-            onConfigUpdate={fetchData}
-          />
+        <TabsContent value="whatsapp" className="space-y-4">
+          {prefeituraData && (
+            <EvolutionQrConnect 
+              prefeituraId={prefeituraId}
+              prefeituraSlug={prefeituraData.slug}
+              evolutionConnected={prefeituraData.evolution_connected}
+              evolutionPhone={prefeituraData.evolution_phone}
+              onConfigUpdate={fetchData}
+            />
+          )}
         </TabsContent>
 
-        <TabsContent value="whatsapp" className="space-y-4">
+        <TabsContent value="webhook" className="space-y-4">
           {/* Credenciais */}
           <Card>
             <CardHeader>
