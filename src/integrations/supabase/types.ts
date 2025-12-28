@@ -833,6 +833,8 @@ export type Database = {
           localizacao: Json | null
           midias_coletadas: Json
           nome_cidadao: string | null
+          operador_atendendo_desde: string | null
+          operador_atendendo_id: string | null
           prefeitura_id: string
           reclamacao_id: string | null
           telefone: string
@@ -847,6 +849,8 @@ export type Database = {
           localizacao?: Json | null
           midias_coletadas?: Json
           nome_cidadao?: string | null
+          operador_atendendo_desde?: string | null
+          operador_atendendo_id?: string | null
           prefeitura_id: string
           reclamacao_id?: string | null
           telefone: string
@@ -861,6 +865,8 @@ export type Database = {
           localizacao?: Json | null
           midias_coletadas?: Json
           nome_cidadao?: string | null
+          operador_atendendo_desde?: string | null
+          operador_atendendo_id?: string | null
           prefeitura_id?: string
           reclamacao_id?: string | null
           telefone?: string
@@ -934,6 +940,50 @@ export type Database = {
           },
           {
             foreignKeyName: "whatsapp_mensagens_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_templates: {
+        Row: {
+          atalho: string | null
+          ativo: boolean | null
+          conteudo: string
+          created_at: string | null
+          id: string
+          ordem: number | null
+          prefeitura_id: string
+          titulo: string
+          updated_at: string | null
+        }
+        Insert: {
+          atalho?: string | null
+          ativo?: boolean | null
+          conteudo: string
+          created_at?: string | null
+          id?: string
+          ordem?: number | null
+          prefeitura_id: string
+          titulo: string
+          updated_at?: string | null
+        }
+        Update: {
+          atalho?: string | null
+          ativo?: boolean | null
+          conteudo?: string
+          created_at?: string | null
+          id?: string
+          ordem?: number | null
+          prefeitura_id?: string
+          titulo?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_templates_prefeitura_id_fkey"
             columns: ["prefeitura_id"]
             isOneToOne: false
             referencedRelation: "prefeituras"
