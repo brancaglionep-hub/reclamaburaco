@@ -332,10 +332,37 @@ Deno.serve(async (req) => {
     const bairros = bairrosResult.data || [];
     const categorias = categoriasResult.data || [];
 
-    // Verificar comando de consulta
+    // Verificar comando de consulta ou protocolo direto
     const textoLower = mensagem.texto.toLowerCase().trim();
-    if (textoLower.startsWith('/consultar ') || textoLower.startsWith('/status ') || textoLower.startsWith('consultar ')) {
-      const protocolo = mensagem.texto.substring(mensagem.texto.indexOf(' ') + 1).trim().toUpperCase();
+    const textoUpper = mensagem.texto.toUpperCase().trim();
+    
+    // Função para verificar se parece um protocolo (ex: REC-2025-12345, 2025-001, etc.)
+    const pareceProtocolo = (texto: string): boolean => {
+      // Padrões comuns de protocolo
+      const padroes = [
+        /^REC-\d{4}-\d+$/i,           // REC-2025-12345
+        /^\d{4}-\d{3,}$/,             // 2025-00123
+        /^[A-Z]{2,4}-\d{4}-\d+$/i,    // ABC-2025-123
+        /^[A-Z]{2,4}\d{4,}/i,         // ABC20250001
+        /^\d{6,}$/,                   // 123456 (só números, 6+ dígitos)
+      ];
+      return padroes.some(p => p.test(texto.replace(/\s/g, '')));
+    };
+    
+    // Detectar se é consulta de protocolo (comando explícito ou parece protocolo)
+    const isConsultaExplicita = textoLower.startsWith('/consultar ') || textoLower.startsWith('/status ') || textoLower.startsWith('consultar ');
+    const isProtocoloDireto = pareceProtocolo(mensagem.texto.trim());
+    
+    if (isConsultaExplicita || isProtocoloDireto) {
+      // Extrair protocolo do texto
+      let protocolo = '';
+      if (isConsultaExplicita) {
+        protocolo = mensagem.texto.substring(mensagem.texto.indexOf(' ') + 1).trim().toUpperCase();
+      } else {
+        protocolo = textoUpper.replace(/\s/g, '');
+      }
+      
+      console.log(`Consultando protocolo: ${protocolo}`);
       
       const { data: consultaResult } = await supabase
         .rpc('consultar_protocolo', {
@@ -343,10 +370,8 @@ Deno.serve(async (req) => {
           _prefeitura_id: prefeitura.id,
         });
 
-      let respostaConsulta = '';
-      if (!consultaResult || consultaResult.length === 0) {
-        respostaConsulta = `❌ Protocolo *${protocolo}* não encontrado.\n\nVerifique se digitou corretamente ou entre em contato com a ${prefeitura.nome}.`;
-      } else {
+      // Se encontrou o protocolo, retorna os detalhes
+      if (consultaResult && consultaResult.length > 0) {
         const rec = consultaResult[0];
         const statusMap: Record<string, string> = {
           recebida: '📥 Recebida - Aguardando análise',
@@ -354,21 +379,58 @@ Deno.serve(async (req) => {
           resolvida: '✅ Resolvida',
           arquivada: '📁 Arquivada',
         };
-        respostaConsulta = `📋 *Consulta de Protocolo*\n\n` +
+        
+        // Buscar histórico de movimentações
+        const { data: historicoResult } = await supabase
+          .rpc('consultar_historico_protocolo', {
+            _protocolo: protocolo,
+            _prefeitura_id: prefeitura.id,
+          });
+        
+        let respostaConsulta = `📋 *Consulta de Protocolo*\n\n` +
           `*Protocolo:* ${rec.protocolo}\n` +
           `*Status:* ${statusMap[rec.status] || rec.status}\n` +
           `*Local:* ${rec.rua}${rec.bairro_nome ? `, ${rec.bairro_nome}` : ''}\n` +
+          `*Categoria:* ${rec.categoria_nome || 'Não especificada'}\n` +
           `*Data:* ${new Date(rec.created_at).toLocaleDateString('pt-BR')}\n`;
+        
+        // Adicionar histórico de movimentações
+        if (historicoResult && historicoResult.length > 0) {
+          respostaConsulta += `\n📜 *Histórico de Movimentações:*\n`;
+          historicoResult.slice(0, 5).forEach((h: any) => {
+            const dataHist = new Date(h.created_at).toLocaleDateString('pt-BR', { 
+              day: '2-digit', 
+              month: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            const statusAnterior = h.status_anterior ? statusMap[h.status_anterior]?.split(' ')[0] || h.status_anterior : 'Novo';
+            const statusNovo = statusMap[h.status_novo]?.split(' ')[0] || h.status_novo;
+            respostaConsulta += `• ${dataHist} - ${statusAnterior} ➔ ${statusNovo}\n`;
+            if (h.observacao) {
+              respostaConsulta += `  _${h.observacao}_\n`;
+            }
+          });
+        }
+        
         if (rec.resposta_prefeitura) {
           respostaConsulta += `\n💬 *Resposta da Prefeitura:*\n${rec.resposta_prefeitura}`;
         }
         respostaConsulta += `\n\n_${prefeitura.nome}_`;
-      }
 
-      return new Response(
-        JSON.stringify({ resposta: respostaConsulta, acao: 'consulta' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        return new Response(
+          JSON.stringify({ resposta: respostaConsulta, acao: 'consulta' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (isConsultaExplicita) {
+        // Só mostra erro se foi consulta explícita, não se só parecia protocolo
+        const respostaConsulta = `❌ Protocolo *${protocolo}* não encontrado.\n\nVerifique se digitou corretamente ou entre em contato com a ${prefeitura.nome}.`;
+        return new Response(
+          JSON.stringify({ resposta: respostaConsulta, acao: 'consulta' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      // Se parecia protocolo mas não encontrou, continua o fluxo normal
     }
 
     // Verificar comando de minhas reclamações
