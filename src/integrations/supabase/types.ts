@@ -475,6 +475,7 @@ export type Database = {
           imagem_capa_url: string | null
           logo_url: string | null
           nome: string
+          plano: Database["public"]["Enums"]["plano_prefeitura"]
           slug: string
           telefone_contato: string | null
           texto_institucional: string | null
@@ -498,6 +499,7 @@ export type Database = {
           imagem_capa_url?: string | null
           logo_url?: string | null
           nome: string
+          plano?: Database["public"]["Enums"]["plano_prefeitura"]
           slug: string
           telefone_contato?: string | null
           texto_institucional?: string | null
@@ -521,6 +523,7 @@ export type Database = {
           imagem_capa_url?: string | null
           logo_url?: string | null
           nome?: string
+          plano?: Database["public"]["Enums"]["plano_prefeitura"]
           slug?: string
           telefone_contato?: string | null
           texto_institucional?: string | null
@@ -1074,6 +1077,7 @@ export type Database = {
       app_role: "super_admin" | "admin_prefeitura" | "user"
       canal_envio: "whatsapp" | "sms" | "push" | "email"
       complaint_status: "recebida" | "em_andamento" | "resolvida" | "arquivada"
+      plano_prefeitura: "starter" | "pro"
       status_envio: "pendente" | "enviado" | "erro"
       tipo_alerta:
         | "enchente"
@@ -1211,6 +1215,7 @@ export const Constants = {
       app_role: ["super_admin", "admin_prefeitura", "user"],
       canal_envio: ["whatsapp", "sms", "push", "email"],
       complaint_status: ["recebida", "em_andamento", "resolvida", "arquivada"],
+      plano_prefeitura: ["starter", "pro"],
       status_envio: ["pendente", "enviado", "erro"],
       tipo_alerta: [
         "enchente",
