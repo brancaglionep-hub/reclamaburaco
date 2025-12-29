@@ -54,6 +54,90 @@ interface EvolutionMessage {
 const processedIncomingMessageIds = new Map<string, number>();
 const INCOMING_DEDUPE_TTL_MS = 2 * 60 * 1000;
 
+// Função para baixar mídia e salvar no Storage
+async function downloadAndUploadMedia(
+  supabase: any,
+  evolutionUrl: string,
+  evolutionKey: string,
+  instanceName: string,
+  messageId: string,
+  mediaType: 'image' | 'video',
+  prefeituraId: string
+): Promise<string | null> {
+  try {
+    console.log(`Baixando mídia ${mediaType} via Evolution API...`);
+    
+    // Usar o endpoint getBase64FromMediaMessage da Evolution API
+    const mediaResponse = await fetch(`${evolutionUrl}/chat/getBase64FromMediaMessage/${instanceName}`, {
+      method: 'POST',
+      headers: {
+        'apikey': evolutionKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: {
+          key: {
+            id: messageId,
+          },
+        },
+        convertToMp4: mediaType === 'video',
+      }),
+    });
+
+    if (!mediaResponse.ok) {
+      const errorText = await mediaResponse.text();
+      console.error('Erro ao baixar mídia:', errorText);
+      return null;
+    }
+
+    const mediaData = await mediaResponse.json();
+    const base64 = mediaData.base64;
+    const mimetype = mediaData.mimetype || (mediaType === 'image' ? 'image/jpeg' : 'video/mp4');
+
+    if (!base64) {
+      console.error('Base64 não retornado pela Evolution API');
+      return null;
+    }
+
+    // Converter base64 para Uint8Array
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    // Gerar nome do arquivo
+    const extension = mimetype.split('/')[1] || (mediaType === 'image' ? 'jpg' : 'mp4');
+    const fileName = `whatsapp/${prefeituraId}/${Date.now()}-${messageId.substring(0, 8)}.${extension}`;
+
+    console.log(`Fazendo upload para Storage: ${fileName}`);
+
+    // Upload para o Storage
+    const { data, error } = await supabase.storage
+      .from('reclamacoes-media')
+      .upload(fileName, bytes, {
+        contentType: mimetype,
+        upsert: false,
+      });
+
+    if (error) {
+      console.error('Erro ao fazer upload:', error);
+      return null;
+    }
+
+    // Retornar URL pública
+    const { data: publicUrlData } = supabase.storage
+      .from('reclamacoes-media')
+      .getPublicUrl(fileName);
+
+    console.log('Upload concluído:', publicUrlData.publicUrl);
+    return publicUrlData.publicUrl;
+  } catch (error) {
+    console.error('Erro ao processar mídia:', error);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   console.log('=== Receive Evolution Webhook ===');
   console.log('Method:', req.method);
@@ -114,7 +198,7 @@ Deno.serve(async (req) => {
     // Buscar prefeitura
     const { data: prefeitura, error: prefeituraError } = await supabase
       .from('prefeituras')
-      .select('id, nome, slug, evolution_api_url, evolution_api_key, evolution_instance_name')
+      .select('id, nome, slug, cidade, estado, evolution_api_url, evolution_api_key, evolution_instance_name')
       .eq('evolution_instance_name', body.instance)
       .eq('ativo', true)
       .single();
@@ -145,6 +229,7 @@ Deno.serve(async (req) => {
     // Extrair dados da mensagem
     const phoneNumber = body.data.key.remoteJid.replace('@s.whatsapp.net', '').replace('@c.us', '');
     const senderName = body.data.pushName || 'Cidadão';
+    const messageId = body.data.key.id;
 
     // Extrair texto da mensagem
     let messageText = '';
@@ -167,15 +252,40 @@ Deno.serve(async (req) => {
       };
     }
 
-    // Extrair mídia se disponível
+    // Processar mídia - baixar e fazer upload para o Storage
     const fotos: string[] = [];
     const videos: string[] = [];
 
-    if (body.data.message?.imageMessage?.url) {
-      fotos.push(body.data.message.imageMessage.url);
+    if (body.data.message?.imageMessage && evolutionUrl && evolutionKey) {
+      console.log('Imagem detectada, fazendo download...');
+      const uploadedUrl = await downloadAndUploadMedia(
+        supabase,
+        evolutionUrl,
+        evolutionKey,
+        body.instance,
+        messageId,
+        'image',
+        prefeitura.id
+      );
+      if (uploadedUrl) {
+        fotos.push(uploadedUrl);
+      }
     }
-    if (body.data.message?.videoMessage?.url) {
-      videos.push(body.data.message.videoMessage.url);
+
+    if (body.data.message?.videoMessage && evolutionUrl && evolutionKey) {
+      console.log('Vídeo detectado, fazendo download...');
+      const uploadedUrl = await downloadAndUploadMedia(
+        supabase,
+        evolutionUrl,
+        evolutionKey,
+        body.instance,
+        messageId,
+        'video',
+        prefeitura.id
+      );
+      if (uploadedUrl) {
+        videos.push(uploadedUrl);
+      }
     }
 
     console.log('Mensagem recebida:', { phoneNumber, senderName, messageText: messageText.substring(0, 100), localizacao: !!localizacao, fotos: fotos.length, videos: videos.length });
