@@ -1,12 +1,16 @@
+import { forwardRef } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-export const RecorrenciaBadge = () => {
+export const RecorrenciaBadge = forwardRef<HTMLSpanElement>((_, ref) => {
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+          <span 
+            ref={ref}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700"
+          >
             <RefreshCw className="w-3 h-3" />
             Recorrente
           </span>
@@ -17,4 +21,6 @@ export const RecorrenciaBadge = () => {
       </Tooltip>
     </TooltipProvider>
   );
-};
+});
+
+RecorrenciaBadge.displayName = 'RecorrenciaBadge';
