@@ -141,20 +141,6 @@ const PainelLayout = () => {
                 <p className="text-xs text-muted-foreground truncate">{prefeitura?.nome}</p>
               </div>
             </div>
-            {/* Plan Badge */}
-            <div className="mt-3">
-              {isPro ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border border-amber-200">
-                  <Crown className="w-3.5 h-3.5" />
-                  Plano PRO
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Plano Starter
-                </span>
-              )}
-            </div>
           </div>
 
           {/* Navigation */}
@@ -196,6 +182,19 @@ const PainelLayout = () => {
                   >
                     <item.icon className="w-5 h-5" />
                     <span className="font-medium">{item.label}</span>
+                    {item.label === "Dashboard" && (
+                      isPro ? (
+                        <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border border-amber-200">
+                          <Crown className="w-3 h-3" />
+                          PRO
+                        </span>
+                      ) : (
+                        <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                          <Sparkles className="w-3 h-3" />
+                          Starter
+                        </span>
+                      )
+                    )}
                     {item.beta && (
                       <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-600 dark:text-orange-400 uppercase tracking-wide">
                         Beta
