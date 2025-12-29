@@ -22,7 +22,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 
-import { Reclamacao, ReclamacaoComSla, statusConfig, slaConfig, SLA_LIMITE_DIAS } from "@/components/painel/reclamacoes/types";
+import { Reclamacao, ReclamacaoComSla, statusConfig, slaConfig } from "@/components/painel/reclamacoes/types";
 import { processarReclamacoes, ordenarPorUrgencia, formatarTempoEspera } from "@/components/painel/reclamacoes/utils";
 import { SlaBadge } from "@/components/painel/reclamacoes/SlaBadge";
 import { RecorrenciaBadge } from "@/components/painel/reclamacoes/RecorrenciaBadge";
@@ -99,8 +99,28 @@ const PainelReclamacoes = () => {
     enabled: !!prefeituraId,
   });
 
+  // Buscar configurações de SLA da prefeitura
+  const { data: configSla } = useQuery({
+    queryKey: ["config-sla", prefeituraId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("prefeitura_configuracoes")
+        .select("sla_padrao_dias, sla_alerta_percentual")
+        .eq("prefeitura_id", prefeituraId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!prefeituraId,
+  });
+
+  const slaPadraoDias = configSla?.sla_padrao_dias ?? 7;
+  const slaAlertaPercentual = configSla?.sla_alerta_percentual ?? 80;
+  const slaAlertaDias = Math.floor(slaPadraoDias * (slaAlertaPercentual / 100));
+
   // Processar reclamações com SLA e recorrência
-  const reclamacoesProcessadas = processarReclamacoes(reclamacoes);
+  const reclamacoesProcessadas = processarReclamacoes(reclamacoes, slaPadraoDias, slaAlertaDias);
   
   // Filtrar reclamações
   const filteredReclamacoes = reclamacoesProcessadas.filter(r => {
@@ -546,10 +566,10 @@ const PainelReclamacoes = () => {
 
       {/* Legenda SLA */}
       <div className="flex items-center gap-6 text-xs text-muted-foreground border-t pt-4">
-        <span className="font-medium">Legenda SLA (prazo: {SLA_LIMITE_DIAS} dias):</span>
+        <span className="font-medium">Legenda SLA (prazo: {slaPadraoDias} dias):</span>
         <span className="flex items-center gap-1">🟢 No prazo</span>
-        <span className="flex items-center gap-1">🟡 Próximo do vencimento (10+ dias)</span>
-        <span className="flex items-center gap-1">🔴 Vencido (15+ dias)</span>
+        <span className="flex items-center gap-1">🟡 Próximo do vencimento ({slaAlertaDias}+ dias)</span>
+        <span className="flex items-center gap-1">🔴 Vencido ({slaPadraoDias}+ dias)</span>
       </div>
     </div>
   );

@@ -23,8 +23,9 @@ export interface ReclamacaoComSla extends Reclamacao {
   isRecorrente: boolean;
 }
 
-export const SLA_LIMITE_DIAS = 15; // Prazo padrão de 15 dias
-export const SLA_ALERTA_DIAS = 10; // Alerta a partir de 10 dias
+// Valores padrão, mas sempre deve-se usar as configurações da prefeitura quando disponíveis
+export const SLA_LIMITE_DIAS_DEFAULT = 7;
+export const SLA_ALERTA_PERCENTUAL_DEFAULT = 80;
 
 export const statusConfig: Record<string, { label: string; color: string; bgClass: string }> = {
   recebida: { label: "Recebida", color: "text-blue-700", bgClass: "bg-blue-100" },
