@@ -3,6 +3,7 @@ import { useParams, useNavigate, useOutletContext } from "react-router-dom";
 import { ArrowLeft, MapPin, Calendar, User, Mail, Phone, FileText, Send, Clock, CheckCircle2, AlertCircle, Image, Video } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { VideoModal, VideoThumbnail } from "@/components/VideoModal";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -62,6 +63,7 @@ const PainelReclamacaoDetalhe = () => {
   const [saving, setSaving] = useState(false);
   const [newStatus, setNewStatus] = useState("");
   const [resposta, setResposta] = useState("");
+  const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchReclamacao = async () => {
@@ -279,10 +281,28 @@ const PainelReclamacaoDetalhe = () => {
                   <p className="text-sm text-muted-foreground mb-2 flex items-center gap-1">
                     <Video className="w-4 h-4" /> Vídeos ({reclamacao.videos.length})
                   </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {reclamacao.videos.map((video, i) => (
+                      <VideoThumbnail
+                        key={i}
+                        videoUrl={video}
+                        index={i}
+                        onClick={() => setSelectedVideo(video)}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           )}
+
+          {/* Video Modal */}
+          <VideoModal
+            videoUrl={selectedVideo || ""}
+            isOpen={!!selectedVideo}
+            onClose={() => setSelectedVideo(null)}
+            title={`Vídeo - ${reclamacao.protocolo}`}
+          />
 
           {/* Resposta */}
           <div className="bg-card rounded-xl border border-border p-6">
