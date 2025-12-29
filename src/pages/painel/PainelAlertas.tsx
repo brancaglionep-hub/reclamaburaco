@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useOutletContext, Link } from "react-router-dom";
-import { AlertTriangle, Send, CloudRain, Droplets, Siren, Bell, Users, MapPin, History, CheckCircle2, Mail, MessageSquare, Smartphone, BellRing } from "lucide-react";
+import { AlertTriangle, Send, CloudRain, Droplets, Siren, Bell, Users, MapPin, History, CheckCircle2, Mail, MessageSquare, Smartphone, BellRing, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ import {
 
 interface OutletContext {
   prefeituraId: string;
-  prefeitura: { nome: string; cidade: string } | null;
+  prefeitura: { nome: string; cidade: string; plano?: string } | null;
 }
 
 interface Bairro {
@@ -59,9 +59,9 @@ const tiposAlerta: { value: TipoAlerta; label: string; icon: typeof AlertTriangl
   { value: 'aviso_geral', label: 'Aviso Geral', icon: Bell },
 ];
 
-const canaisEnvio: { value: CanalEnvio; label: string; icon: typeof Mail; enabled: boolean }[] = [
-  { value: 'email', label: 'Email', icon: Mail, enabled: true },
-  { value: 'whatsapp', label: 'WhatsApp', icon: MessageSquare, enabled: true },
+const canaisEnvio: { value: CanalEnvio; label: string; icon: typeof Mail; proOnly?: boolean }[] = [
+  { value: 'email', label: 'Email', icon: Mail },
+  { value: 'whatsapp', label: 'WhatsApp', icon: MessageSquare, proOnly: true },
 ];
 
 const canaisEmBreve: { label: string; icon: typeof Mail }[] = [
@@ -71,6 +71,7 @@ const canaisEmBreve: { label: string; icon: typeof Mail }[] = [
 
 const PainelAlertas = () => {
   const { prefeituraId, prefeitura } = useOutletContext<OutletContext>();
+  const isPro = prefeitura?.plano === 'pro';
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [bairros, setBairros] = useState<Bairro[]>([]);
@@ -432,24 +433,54 @@ const PainelAlertas = () => {
                 <TooltipProvider>
                   <div className="flex flex-wrap gap-4 pt-2">
                     {/* Canais ativos */}
-                    {canaisEnvio.map((canal) => (
-                      <div key={canal.value} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={canal.value}
-                          checked={canais.includes(canal.value)}
-                          onCheckedChange={(checked) =>
-                            handleCanalChange(canal.value, checked as boolean)
-                          }
-                        />
-                        <label
-                          htmlFor={canal.value}
-                          className="text-sm font-medium leading-none cursor-pointer flex items-center gap-1.5"
-                        >
-                          <canal.icon className="w-4 h-4" />
-                          {canal.label}
-                        </label>
-                      </div>
-                    ))}
+                    {canaisEnvio.map((canal) => {
+                      const isDisabled = canal.proOnly && !isPro;
+                      
+                      if (isDisabled) {
+                        return (
+                          <Tooltip key={canal.value}>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center space-x-2 opacity-50 cursor-not-allowed">
+                                <Checkbox
+                                  id={canal.value}
+                                  disabled
+                                  checked={false}
+                                />
+                                <label
+                                  className="text-sm font-medium leading-none cursor-not-allowed flex items-center gap-1.5"
+                                >
+                                  <canal.icon className="w-4 h-4" />
+                                  {canal.label}
+                                  <Crown className="w-3 h-3 text-amber-500" />
+                                </label>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Disponível apenas no plano PRO</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      }
+                      
+                      return (
+                        <div key={canal.value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={canal.value}
+                            checked={canais.includes(canal.value)}
+                            onCheckedChange={(checked) =>
+                              handleCanalChange(canal.value, checked as boolean)
+                            }
+                          />
+                          <label
+                            htmlFor={canal.value}
+                            className="text-sm font-medium leading-none cursor-pointer flex items-center gap-1.5"
+                          >
+                            <canal.icon className="w-4 h-4" />
+                            {canal.label}
+                          </label>
+                        </div>
+                      );
+                    })}
                     
                     {/* Canais em breve (desabilitados) */}
                     {canaisEmBreve.map((canal) => (
