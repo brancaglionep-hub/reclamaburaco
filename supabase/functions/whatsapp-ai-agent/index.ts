@@ -413,7 +413,7 @@ Deno.serve(async (req) => {
           resposta += `${i + 1}. ${statusEmoji[rec.status] || '📌'} *${rec.protocolo}*\n`;
           resposta += `   ${rec.categoria?.[0]?.nome || 'Problema'} - ${rec.rua}\n\n`;
         });
-        resposta += `Digite o protocolo para ver os detalhes, ou envie o número (1, 2...) da reclamação que quer consultar.`;
+        resposta += `Digite o *protocolo completo* para ver os detalhes (ex: REC-20250101-1234).`;
         
         return new Response(
           JSON.stringify({ resposta, acao: 'listar_consulta' }),
@@ -429,78 +429,11 @@ Deno.serve(async (req) => {
         );
       }
     }
-    
-    // Estados ativos do fluxo de criação de reclamação (não interpretar números como seleção de protocolo)
-    // Inclui 'coletando_dados' que é usado em alguns fluxos
-    const estadosAtivosFluxo = ['dados_pessoais', 'localizacao', 'tipo_problema', 'descricao', 'midia', 'confirmacao', 'coletando_dados'];
-    const estaEmFluxoAtivo = estadosAtivosFluxo.includes(conversaData.estado);
-    
-    console.log(`Estado da conversa: ${conversaData.estado} - Em fluxo ativo: ${estaEmFluxoAtivo}`);
-    
-    // Se mandou número simples (1, 2, 3) pode ser seleção de reclamação anterior
-    // MAS SOMENTE se NÃO estiver em um fluxo ativo de criação de reclamação
-    const numeroSimples = parseInt(textoLower);
-    if (!estaEmFluxoAtivo && !isNaN(numeroSimples) && numeroSimples >= 1 && numeroSimples <= 3 && reclamacoesAnteriores.length >= numeroSimples) {
-      const recSelecionada = reclamacoesAnteriores[numeroSimples - 1];
-      // Consultar esta reclamação
-      const { data: consultaResult } = await supabase
-        .rpc('consultar_protocolo', {
-          _protocolo: recSelecionada.protocolo,
-          _prefeitura_id: prefeitura.id,
-        });
+    // Não interpretar números simples (1, 2, 3...) como consulta.
+    // Para consultar, o cidadão deve:
+    // - enviar o comando explícito "consultar ..." / "/consultar ..."
+    // - ou enviar o protocolo completo (ex: REC-20250101-1234)
 
-      if (consultaResult && consultaResult.length > 0) {
-        const rec = consultaResult[0];
-        const statusMap: Record<string, string> = {
-          recebida: '📥 Recebida - Aguardando análise',
-          em_andamento: '🔄 Em Andamento - Equipe trabalhando',
-          resolvida: '✅ Resolvida',
-          arquivada: '📁 Arquivada',
-        };
-        
-        const { data: historicoResult } = await supabase
-          .rpc('consultar_historico_protocolo', {
-            _protocolo: recSelecionada.protocolo,
-            _prefeitura_id: prefeitura.id,
-          });
-        
-        let respostaConsulta = `📋 *Consulta de Protocolo*\n\n` +
-          `*Protocolo:* ${rec.protocolo}\n` +
-          `*Status:* ${statusMap[rec.status] || rec.status}\n` +
-          `*Local:* ${rec.rua}${rec.bairro_nome ? `, ${rec.bairro_nome}` : ''}\n` +
-          `*Categoria:* ${rec.categoria_nome || 'Não especificada'}\n` +
-          `*Data:* ${new Date(rec.created_at).toLocaleDateString('pt-BR')}\n`;
-        
-        if (historicoResult && historicoResult.length > 0) {
-          respostaConsulta += `\n📜 *Histórico de Movimentações:*\n`;
-          historicoResult.slice(0, 5).forEach((h: any) => {
-            const dataHist = new Date(h.created_at).toLocaleDateString('pt-BR', { 
-              day: '2-digit', 
-              month: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit'
-            });
-            const statusAnterior = h.status_anterior ? statusMap[h.status_anterior]?.split(' ')[0] || h.status_anterior : 'Novo';
-            const statusNovo = statusMap[h.status_novo]?.split(' ')[0] || h.status_novo;
-            respostaConsulta += `• ${dataHist} - ${statusAnterior} ➔ ${statusNovo}\n`;
-            if (h.observacao) {
-              respostaConsulta += `  _${h.observacao}_\n`;
-            }
-          });
-        }
-        
-        if (rec.resposta_prefeitura) {
-          respostaConsulta += `\n💬 *Resposta da Prefeitura:*\n${rec.resposta_prefeitura}`;
-        }
-        respostaConsulta += `\n\n_${prefeitura.nome}_`;
-
-        return new Response(
-          JSON.stringify({ resposta: respostaConsulta, acao: 'consulta' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    }
-    
     // Usar protocolo extraído do texto ou o texto direto
     const protocoloParaConsultar = protocoloNoTexto || (isProtocoloDireto ? textoUpper.replace(/\s/g, '') : null);
     
