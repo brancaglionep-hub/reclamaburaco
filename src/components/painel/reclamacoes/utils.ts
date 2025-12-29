@@ -1,4 +1,4 @@
-import { Reclamacao, ReclamacaoComSla, SlaStatus, SLA_LIMITE_DIAS, SLA_ALERTA_DIAS } from './types';
+import { Reclamacao, ReclamacaoComSla, SlaStatus, SLA_LIMITE_DIAS_DEFAULT, SLA_ALERTA_PERCENTUAL_DEFAULT } from './types';
 
 export const calcularTempoEspera = (created_at: string, updated_at: string, status: string): number => {
   const inicio = new Date(created_at);
@@ -27,14 +27,17 @@ export const formatarTempoEspera = (dias: number): string => {
   return `${dias} dias`;
 };
 
-export const calcularSlaStatus = (dias: number, status: string): SlaStatus => {
+export const calcularSlaStatus = (dias: number, status: string, slaLimiteDias?: number, slaAlertaDias?: number): SlaStatus => {
   // Se já está resolvida ou arquivada, está "dentro do prazo"
   if (status === 'resolvida' || status === 'arquivada') {
     return 'dentro';
   }
   
-  if (dias > SLA_LIMITE_DIAS) return 'vencido';
-  if (dias >= SLA_ALERTA_DIAS) return 'proximo';
+  const limite = slaLimiteDias ?? SLA_LIMITE_DIAS_DEFAULT;
+  const alerta = slaAlertaDias ?? Math.floor(limite * (SLA_ALERTA_PERCENTUAL_DEFAULT / 100));
+  
+  if (dias > limite) return 'vencido';
+  if (dias >= alerta) return 'proximo';
   return 'dentro';
 };
 
@@ -58,10 +61,14 @@ export const verificarRecorrencia = (
   return mesmaRuaCategoria.some(r => new Date(r.created_at) >= dataLimite);
 };
 
-export const processarReclamacoes = (reclamacoes: Reclamacao[]): ReclamacaoComSla[] => {
+export const processarReclamacoes = (
+  reclamacoes: Reclamacao[], 
+  slaLimiteDias?: number, 
+  slaAlertaDias?: number
+): ReclamacaoComSla[] => {
   return reclamacoes.map(r => {
     const diasEspera = calcularTempoEspera(r.created_at, r.updated_at, r.status);
-    const slaStatus = calcularSlaStatus(diasEspera, r.status);
+    const slaStatus = calcularSlaStatus(diasEspera, r.status, slaLimiteDias, slaAlertaDias);
     const isRecorrente = verificarRecorrencia(r, reclamacoes);
     
     return {
