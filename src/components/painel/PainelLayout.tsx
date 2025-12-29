@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate, Link, useLocation, useParams } from "react-router-dom";
-import { Building2, LayoutDashboard, FileText, MapPin, Tag, Settings, LogOut, Menu, X, Star, AlertTriangle, Users, Plug, MessageCircle, Lock } from "lucide-react";
+import { Building2, LayoutDashboard, FileText, MapPin, Tag, Settings, LogOut, Menu, X, Star, AlertTriangle, Users, Plug, MessageCircle, Lock, Crown, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -136,10 +136,24 @@ const PainelLayout = () => {
                   <Building2 className="w-6 h-6 text-primary-foreground" />
                 </div>
               )}
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="font-bold text-foreground truncate">{prefeitura?.cidade || "Painel"}</p>
                 <p className="text-xs text-muted-foreground truncate">{prefeitura?.nome}</p>
               </div>
+            </div>
+            {/* Plan Badge */}
+            <div className="mt-3">
+              {isPro ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border border-amber-200">
+                  <Crown className="w-3.5 h-3.5" />
+                  Plano PRO
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Plano Starter
+                </span>
+              )}
             </div>
           </div>
 
