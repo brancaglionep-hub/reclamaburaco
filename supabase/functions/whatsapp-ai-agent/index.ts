@@ -740,8 +740,9 @@ ${usuarioRecorrente ? `
 - Ofereça consultar suas reclamações anteriores quando apropriado
 ` : `
 👋 NOVO USUÁRIO
-- Seja acolhedor na primeira interação
-- Explique brevemente como funciona o processo
+- Seja acolhedor mas DIRETO na primeira interação
+- NÃO liste etapas ou passos do processo
+- Pergunte apenas o que precisa no momento
 `}
 
 📝 FLUXO DE ETAPAS (igual ao site):
