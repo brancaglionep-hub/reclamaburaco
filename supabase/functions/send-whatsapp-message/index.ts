@@ -70,7 +70,32 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!prefeitura.evolution_connected || !prefeitura.evolution_api_url || !prefeitura.evolution_api_key) {
+    // Buscar configuração global da Evolution API (mesma lógica do receive-evolution-webhook)
+    const { data: globalConfig } = await supabase
+      .from('configuracoes_sistema')
+      .select('valor')
+      .eq('chave', 'evolution_api')
+      .single();
+
+    let evolutionUrl = '';
+    let evolutionKey = '';
+
+    // Priorizar configuração global, depois local
+    if (globalConfig?.valor) {
+      const config = globalConfig.valor as { url?: string; api_key?: string };
+      evolutionUrl = config.url || '';
+      evolutionKey = config.api_key || '';
+    }
+    if (!evolutionUrl && prefeitura.evolution_api_url) {
+      evolutionUrl = prefeitura.evolution_api_url;
+    }
+    if (!evolutionKey && prefeitura.evolution_api_key) {
+      evolutionKey = prefeitura.evolution_api_key;
+    }
+
+    const instanceName = prefeitura.evolution_instance_name;
+
+    if (!prefeitura.evolution_connected || !evolutionUrl || !evolutionKey || !instanceName) {
       return new Response(
         JSON.stringify({ error: 'WhatsApp não está configurado para esta prefeitura' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -84,19 +109,17 @@ Deno.serve(async (req) => {
     }
 
     // Enviar via Evolution API
-    const evolutionUrl = prefeitura.evolution_api_url.replace(/\/$/, '');
-    const instanceName = prefeitura.evolution_instance_name;
-    const apiKey = prefeitura.evolution_api_key;
+    const finalEvolutionUrl = evolutionUrl.replace(/\/$/, '');
 
     console.log('Enviando via Evolution API...');
-    console.log('URL:', `${evolutionUrl}/message/sendText/${instanceName}`);
-    console.log('API Key (primeiros 8 chars):', apiKey?.substring(0, 8) + '...');
+    console.log('URL:', `${finalEvolutionUrl}/message/sendText/${instanceName}`);
+    console.log('API Key (primeiros 8 chars):', evolutionKey?.substring(0, 8) + '...');
 
-    const evolutionResponse = await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
+    const evolutionResponse = await fetch(`${finalEvolutionUrl}/message/sendText/${instanceName}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': apiKey,
+        'apikey': evolutionKey,
       },
       body: JSON.stringify({
         number: numero,
