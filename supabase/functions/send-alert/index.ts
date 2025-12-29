@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 
@@ -15,6 +14,10 @@ const vonageApiSecret = Deno.env.get("VONAGE_API_SECRET");
 const resendApiKey = Deno.env.get("RESEND_API_KEY");
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
+// Configuration
+const BATCH_SIZE = 10; // Process 10 sends in parallel
+const PROGRESS_UPDATE_INTERVAL = 5; // Update progress every 5 sends
+
 interface SendResult {
   success: boolean;
   error?: string;
@@ -27,10 +30,21 @@ interface EvolutionConfig {
   instanceName: string;
 }
 
+interface Cidadao {
+  id: string;
+  nome: string;
+  telefone: string | null;
+  email: string | null;
+}
+
+interface SendTask {
+  cidadao: Cidadao;
+  canal: string;
+}
+
 // Send Email via Resend
 async function sendEmail(to: string, subject: string, message: string, prefeituraNome: string): Promise<SendResult> {
   if (!resend) {
-    console.log("[EMAIL] Resend not configured, skipping...");
     return { success: false, error: "Resend não configurado" };
   }
 
@@ -77,14 +91,11 @@ async function sendEmail(to: string, subject: string, message: string, prefeitur
     });
 
     if (response.error) {
-      console.error("[EMAIL] Resend error:", response.error);
       return { success: false, error: response.error.message || "Erro ao enviar email" };
     }
 
-    console.log("[EMAIL] Sent successfully:", response.data?.id);
     return { success: true, messageId: response.data?.id };
   } catch (error: unknown) {
-    console.error("[EMAIL] Error:", error);
     const message = error instanceof Error ? error.message : "Erro desconhecido";
     return { success: false, error: message };
   }
@@ -93,24 +104,18 @@ async function sendEmail(to: string, subject: string, message: string, prefeitur
 // Send SMS via Vonage
 async function sendSMS(to: string, message: string): Promise<SendResult> {
   if (!vonageApiKey || !vonageApiSecret) {
-    console.log("[SMS] Vonage not configured, skipping...");
     return { success: false, error: "Vonage não configurado" };
   }
 
   try {
-    // Format phone number: ensure it starts with country code
     let formattedPhone = to.replace(/\D/g, "");
     if (!formattedPhone.startsWith("55")) {
       formattedPhone = "55" + formattedPhone;
     }
 
-    console.log(`[SMS] Sending to ${formattedPhone} via Vonage`);
-
     const response = await fetch("https://rest.nexmo.com/sms/json", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         api_key: vonageApiKey,
         api_secret: vonageApiSecret,
@@ -122,38 +127,30 @@ async function sendSMS(to: string, message: string): Promise<SendResult> {
     });
 
     const data = await response.json();
-    console.log("[SMS] Vonage response:", JSON.stringify(data));
 
-    // Vonage returns an array of messages, check the first one
     if (data.messages && data.messages.length > 0) {
       const firstMessage = data.messages[0];
       if (firstMessage.status === "0") {
-        console.log("[SMS] Sent successfully:", firstMessage["message-id"]);
         return { success: true, messageId: firstMessage["message-id"] };
       } else {
-        console.error("[SMS] Vonage error:", firstMessage["error-text"]);
         return { success: false, error: firstMessage["error-text"] || "Erro ao enviar SMS" };
       }
     }
 
     return { success: false, error: "Resposta inesperada da Vonage" };
   } catch (error: unknown) {
-    console.error("[SMS] Error:", error);
     const message = error instanceof Error ? error.message : "Erro desconhecido";
     return { success: false, error: message };
   }
 }
 
-// Send WhatsApp via Evolution API
-async function sendWhatsAppEvolution(to: string, message: string, config: EvolutionConfig): Promise<SendResult> {
+// Send WhatsApp via Evolution API with retry
+async function sendWhatsAppEvolution(to: string, message: string, config: EvolutionConfig, retries = 2): Promise<SendResult> {
   try {
-    // Format phone number
     let formattedPhone = to.replace(/\D/g, "");
     if (!formattedPhone.startsWith("55")) {
       formattedPhone = "55" + formattedPhone;
     }
-
-    console.log(`[WHATSAPP] Sending to ${formattedPhone} via Evolution API`);
 
     const apiUrl = config.apiUrl.replace(/\/$/, "");
     const url = `${apiUrl}/message/sendText/${config.instanceName}`;
@@ -171,24 +168,204 @@ async function sendWhatsAppEvolution(to: string, message: string, config: Evolut
     });
 
     const data = await response.json();
-    console.log("[WHATSAPP] Evolution response:", JSON.stringify(data));
 
     if (response.ok && data.key?.id) {
-      console.log("[WHATSAPP] Sent successfully:", data.key.id);
       return { success: true, messageId: data.key.id };
     } else {
-      const errorMessage = data.message || data.error || "Erro ao enviar WhatsApp";
-      console.error("[WHATSAPP] Evolution error:", errorMessage);
+      const errorMessage = data.message || data.error || data.response?.message || "Erro ao enviar WhatsApp";
+      
+      // Retry on temporary errors
+      if (retries > 0 && (response.status >= 500 || response.status === 429)) {
+        console.log(`[WHATSAPP] Retrying... (${retries} left)`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return sendWhatsAppEvolution(to, message, config, retries - 1);
+      }
+      
       return { success: false, error: errorMessage };
     }
   } catch (error: unknown) {
-    console.error("[WHATSAPP] Error:", error);
     const message = error instanceof Error ? error.message : "Erro desconhecido";
+    
+    // Retry on network errors
+    if (retries > 0) {
+      console.log(`[WHATSAPP] Network error, retrying... (${retries} left)`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return sendWhatsAppEvolution(to, message, config, retries - 1);
+    }
+    
     return { success: false, error: message };
   }
 }
 
-serve(async (req) => {
+// Process a single send task
+async function processSendTask(
+  task: SendTask,
+  alerta: { titulo: string; mensagem: string },
+  prefeituraNome: string,
+  mensagemCompleta: string,
+  evolutionConfig: EvolutionConfig | null
+): Promise<{ cidadaoId: string; canal: string; success: boolean; error?: string }> {
+  const { cidadao, canal } = task;
+  let sendResult: SendResult = { success: false, error: "Canal não suportado" };
+
+  switch (canal) {
+    case "sms":
+      if (!cidadao.telefone) {
+        sendResult = { success: false, error: "Telefone não cadastrado" };
+      } else {
+        sendResult = await sendSMS(cidadao.telefone, mensagemCompleta);
+      }
+      break;
+    case "email":
+      if (!cidadao.email) {
+        sendResult = { success: false, error: "Email não cadastrado" };
+      } else {
+        sendResult = await sendEmail(cidadao.email, alerta.titulo, alerta.mensagem, prefeituraNome);
+      }
+      break;
+    case "push":
+      sendResult = { success: false, error: "Push não implementado" };
+      break;
+    case "whatsapp":
+      if (!cidadao.telefone) {
+        sendResult = { success: false, error: "Telefone não cadastrado" };
+      } else if (!evolutionConfig) {
+        sendResult = { success: false, error: "WhatsApp não configurado" };
+      } else {
+        sendResult = await sendWhatsAppEvolution(cidadao.telefone, mensagemCompleta, evolutionConfig);
+      }
+      break;
+  }
+
+  return {
+    cidadaoId: cidadao.id,
+    canal,
+    success: sendResult.success,
+    error: sendResult.error,
+  };
+}
+
+// Process sends in batches
+async function processBatch(
+  tasks: SendTask[],
+  alerta: { titulo: string; mensagem: string },
+  prefeituraNome: string,
+  mensagemCompleta: string,
+  evolutionConfig: EvolutionConfig | null
+) {
+  const promises = tasks.map(task =>
+    processSendTask(task, alerta, prefeituraNome, mensagemCompleta, evolutionConfig)
+  );
+  return Promise.all(promises);
+}
+
+// Background task to process all sends
+async function processAlertSends(
+  alertaId: string,
+  supabase: any,
+  alerta: {
+    titulo: string;
+    mensagem: string;
+    canais: string[];
+    prefeitura_id: string;
+    prefeitura: { nome: string } | null;
+  },
+  cidadaos: Cidadao[],
+  evolutionConfig: EvolutionConfig | null
+) {
+  const prefeituraNome = alerta.prefeitura?.nome || "Prefeitura";
+  const mensagemCompleta = `🚨 *ALERTA OFICIAL – ${prefeituraNome}*\n\n*${alerta.titulo}*\n\n${alerta.mensagem}\n\n_Em caso de emergência ligue 199._\n_Mensagem oficial da Prefeitura._`;
+
+  // Build all tasks
+  const allTasks: SendTask[] = [];
+  for (const cidadao of cidadaos) {
+    for (const canal of alerta.canais) {
+      allTasks.push({ cidadao, canal });
+    }
+  }
+
+  console.log(`[ALERT] Processing ${allTasks.length} sends in batches of ${BATCH_SIZE}`);
+
+  let totalEnviados = 0;
+  let totalErros = 0;
+  const envioRecords: {
+    alerta_id: string;
+    cidadao_id: string;
+    canal: string;
+    status: "enviado" | "erro";
+    enviado_em: string | null;
+    erro_mensagem: string | null;
+  }[] = [];
+
+  // Process in batches
+  for (let i = 0; i < allTasks.length; i += BATCH_SIZE) {
+    const batch = allTasks.slice(i, i + BATCH_SIZE);
+    const batchResults = await processBatch(batch, alerta, prefeituraNome, mensagemCompleta, evolutionConfig);
+
+    // Collect results
+    for (const result of batchResults) {
+      if (result.success) {
+        totalEnviados++;
+        envioRecords.push({
+          alerta_id: alertaId,
+          cidadao_id: result.cidadaoId,
+          canal: result.canal,
+          status: "enviado",
+          enviado_em: new Date().toISOString(),
+          erro_mensagem: null,
+        });
+      } else {
+        totalErros++;
+        envioRecords.push({
+          alerta_id: alertaId,
+          cidadao_id: result.cidadaoId,
+          canal: result.canal,
+          status: "erro",
+          enviado_em: null,
+          erro_mensagem: result.error || "Erro desconhecido",
+        });
+      }
+    }
+
+    // Update progress periodically
+    if ((i + BATCH_SIZE) % (BATCH_SIZE * PROGRESS_UPDATE_INTERVAL) === 0 || i + BATCH_SIZE >= allTasks.length) {
+      await supabase
+        .from("alertas")
+        .update({ total_enviados: totalEnviados })
+        .eq("id", alertaId);
+      
+      console.log(`[ALERT] Progress: ${totalEnviados + totalErros}/${allTasks.length} (${totalEnviados} sent, ${totalErros} errors)`);
+    }
+
+    // Small delay between batches to avoid rate limiting
+    if (i + BATCH_SIZE < allTasks.length) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+
+  // Batch insert all send records
+  if (envioRecords.length > 0) {
+    const { error: insertError } = await supabase.from("alerta_envios").insert(envioRecords);
+    if (insertError) {
+      console.error("[ALERT] Error inserting send records:", insertError);
+    }
+  }
+
+  // Final update
+  await supabase
+    .from("alertas")
+    .update({
+      total_enviados: totalEnviados,
+      total_erros: totalErros,
+    })
+    .eq("id", alertaId);
+
+  console.log(`[ALERT] Completed: ${totalEnviados} sent, ${totalErros} errors`);
+
+  return { enviados: totalEnviados, erros: totalErros };
+}
+
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -207,7 +384,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch alert details with prefeitura info including Evolution API config
+    // Fetch alert details
     const { data: alerta, error: alertaError } = await supabase
       .from("alertas")
       .select("*, prefeitura:prefeituras(nome, evolution_api_url, evolution_api_key, evolution_instance_name, evolution_connected)")
@@ -222,12 +399,11 @@ serve(async (req) => {
       });
     }
 
-    // Check Evolution API configuration if WhatsApp is selected
+    // Get Evolution API config
     let evolutionConfig: EvolutionConfig | null = null;
     if (alerta.canais.includes("whatsapp")) {
       const prefeitura = alerta.prefeitura;
       
-      // First, check global config (same priority as send-whatsapp-message)
       const { data: globalConfig } = await supabase
         .from("configuracoes_sistema")
         .select("valor")
@@ -237,7 +413,6 @@ serve(async (req) => {
       let evolutionUrl = '';
       let evolutionKey = '';
 
-      // Prioritize global config, then local (same as send-whatsapp-message)
       if (globalConfig?.valor) {
         const config = globalConfig.valor as { url?: string; api_key?: string };
         evolutionUrl = config.url || '';
@@ -253,25 +428,14 @@ serve(async (req) => {
       const instanceName = prefeitura?.evolution_instance_name;
 
       if (evolutionUrl && evolutionKey && instanceName && prefeitura?.evolution_connected) {
-        evolutionConfig = {
-          apiUrl: evolutionUrl,
-          apiKey: evolutionKey,
-          instanceName: instanceName,
-        };
-        console.log("[WHATSAPP] Using Evolution API config");
-        console.log("[WHATSAPP] URL:", evolutionUrl);
-        console.log("[WHATSAPP] Instance:", instanceName);
-        console.log("[WHATSAPP] API Key (first 8 chars):", evolutionKey?.substring(0, 8) + "...");
+        evolutionConfig = { apiUrl: evolutionUrl, apiKey: evolutionKey, instanceName };
+        console.log("[WHATSAPP] Evolution API configured:", instanceName);
       } else {
         console.warn("[WHATSAPP] Evolution API not properly configured");
-        console.log("[WHATSAPP] URL:", evolutionUrl);
-        console.log("[WHATSAPP] Key exists:", !!evolutionKey);
-        console.log("[WHATSAPP] Instance:", instanceName);
-        console.log("[WHATSAPP] Connected:", prefeitura?.evolution_connected);
       }
     }
 
-    // Fetch citizens to notify
+    // Fetch citizens
     let query = supabase
       .from("cidadaos")
       .select("id, nome, telefone, email")
@@ -295,116 +459,55 @@ serve(async (req) => {
 
     const totalCidadaos = cidadaos?.length || 0;
     const totalEnviosEsperados = totalCidadaos * (alerta.canais?.length || 1);
-    
+
+    console.log(`[ALERT] Starting alert ${alertaId}: ${totalCidadaos} citizens, ${alerta.canais.length} channels = ${totalEnviosEsperados} sends`);
+
     // Initialize progress
     await supabase
       .from("alertas")
-      .update({
-        total_enviados: 0,
-        total_erros: totalEnviosEsperados,
-      })
+      .update({ total_enviados: 0, total_erros: 0 })
       .eq("id", alertaId);
 
-    const prefeituraNome = alerta.prefeitura?.nome || "Prefeitura";
-    let totalEnviados = 0;
-    let totalErros = 0;
-
-    // Build message
-    const mensagemCompleta = `🚨 *ALERTA OFICIAL – ${prefeituraNome}*\n\n*${alerta.titulo}*\n\n${alerta.mensagem}\n\n_Em caso de emergência ligue 199._\n_Mensagem oficial da Prefeitura._`;
-
-    console.log(`Iniciando envio de alerta ${alertaId} para ${totalCidadaos} cidadãos via ${alerta.canais.join(", ")}`);
-
-    // Process each citizen
-    for (const cidadao of cidadaos || []) {
-      for (const canal of alerta.canais) {
-        let sendResult: SendResult = { success: false, error: "Canal não suportado" };
-        let status: "enviado" | "erro" = "erro";
-        let errorMessage: string | null = null;
-
-        // Send based on channel
-        switch (canal) {
-          case "sms":
-            if (!cidadao.telefone) {
-              console.log(`[SMS] Cidadão ${cidadao.nome} sem telefone cadastrado`);
-              sendResult = { success: false, error: "Telefone não cadastrado" };
-            } else {
-              sendResult = await sendSMS(cidadao.telefone, mensagemCompleta);
-            }
-            break;
-          case "email":
-            if (!cidadao.email) {
-              console.log(`[EMAIL] Cidadão ${cidadao.nome} sem email cadastrado`);
-              sendResult = { success: false, error: "Email não cadastrado" };
-            } else {
-              sendResult = await sendEmail(cidadao.email, alerta.titulo, alerta.mensagem, prefeituraNome);
-            }
-            break;
-          case "push":
-            console.log(`[PUSH] Push notification for ${cidadao.nome} - not implemented`);
-            sendResult = { success: false, error: "Push não implementado" };
-            break;
-          case "whatsapp":
-            if (!cidadao.telefone) {
-              console.log(`[WHATSAPP] Cidadão ${cidadao.nome} sem telefone cadastrado`);
-              sendResult = { success: false, error: "Telefone não cadastrado" };
-            } else if (!evolutionConfig) {
-              console.log(`[WHATSAPP] Evolution API não configurada`);
-              sendResult = { success: false, error: "WhatsApp não configurado para esta prefeitura" };
-            } else {
-              sendResult = await sendWhatsAppEvolution(cidadao.telefone, mensagemCompleta, evolutionConfig);
-            }
-            break;
-        }
-
-        // Update status based on result
-        if (sendResult.success) {
-          status = "enviado";
-          totalEnviados++;
-        } else {
-          status = "erro";
-          errorMessage = sendResult.error || "Erro desconhecido";
-          totalErros++;
-        }
-
-        // Create send record
-        try {
-          await supabase.from("alerta_envios").insert({
-            alerta_id: alertaId,
-            cidadao_id: cidadao.id,
-            canal: canal,
-            status: status,
-            enviado_em: status === "enviado" ? new Date().toISOString() : null,
-            erro_mensagem: errorMessage,
-          });
-        } catch (err) {
-          console.error("Erro ao registrar envio:", err);
-        }
-
-        // Update progress in real-time
-        await supabase
-          .from("alertas")
-          .update({
-            total_enviados: totalEnviados,
-          })
-          .eq("id", alertaId);
-      }
-    }
-
-    // Final update with actual error count
-    await supabase
-      .from("alertas")
-      .update({
-        total_enviados: totalEnviados,
-        total_erros: totalErros,
-      })
-      .eq("id", alertaId);
-
-    console.log(`Alerta ${alertaId} processado: ${totalEnviados} enviados, ${totalErros} erros`);
-
-    return new Response(
-      JSON.stringify({ success: true, enviados: totalEnviados, erros: totalErros, total: totalEnviosEsperados }),
-      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    // Start background processing
+    const backgroundTask = processAlertSends(
+      alertaId,
+      supabase,
+      alerta,
+      cidadaos || [],
+      evolutionConfig
     );
+
+    // Use EdgeRuntime.waitUntil for background processing
+    // @ts-ignore - EdgeRuntime is available in Deno Deploy
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(backgroundTask);
+      
+      // Return immediately with expected totals
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: "Alerta sendo processado em segundo plano",
+          total: totalEnviosEsperados,
+          cidadaos: totalCidadaos,
+          canais: alerta.canais,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    } else {
+      // Fallback: wait for completion (local development)
+      const result = await backgroundTask;
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          enviados: result.enviados, 
+          erros: result.erros, 
+          total: totalEnviosEsperados 
+        }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
   } catch (error: unknown) {
     console.error("Error processing alert:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
