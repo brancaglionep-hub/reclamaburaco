@@ -324,9 +324,10 @@ Deno.serve(async (req) => {
         .order('nome'),
       supabase
         .from('categorias')
-        .select('id, nome')
+        .select('id, nome, icone')
         .or(`prefeitura_id.eq.${prefeitura.id},global.eq.true`)
         .eq('ativo', true)
+        .order('ordem')
         .order('nome'),
     ]);
 
@@ -906,25 +907,25 @@ ${usuarioRecorrente ? `
 📍 BAIRROS DA CIDADE:
 ${bairros.map(b => `- ${b.nome} (id: ${b.id})`).join('\n') || 'Nenhum cadastrado - aceitar qualquer nome'}
 
-🏷️ TIPOS DE PROBLEMA (SEMPRE mostre com números para o usuário escolher facilmente):
-${TIPOS_PROBLEMA.map(t => `${t.numero}️⃣ ${t.label}`).join('\n')}
+🏷️ CATEGORIAS DE PROBLEMAS DESTA PREFEITURA (use números para o usuário escolher):
+${categorias.length > 0 
+  ? categorias.map((c, i) => `${i + 1}️⃣ ${c.nome} (id: ${c.id})`).join('\n')
+  : TIPOS_PROBLEMA.map(t => `${t.numero}️⃣ ${t.label}`).join('\n')
+}
 
-Quando pedir o tipo de problema, SEMPRE liste assim:
+IMPORTANTE: Use SEMPRE as categorias acima que são específicas desta prefeitura.
+Quando pedir o tipo de problema, liste as opções numeradas:
 "Qual o tipo do problema?
 
-1️⃣ Buraco na rua
-2️⃣ Rua danificada
-3️⃣ Rua alagada
-4️⃣ Desnível na pista
-5️⃣ Rua difícil de trafegar
-6️⃣ Outro problema
+${categorias.length > 0 
+  ? categorias.map((c, i) => `${i + 1}️⃣ ${c.nome}`).join('\n')
+  : TIPOS_PROBLEMA.map(t => `${t.numero}️⃣ ${t.label}`).join('\n')
+}
 
 Digite o número da opção."
 
-Se o usuário responder 1, 2, 3, 4, 5 ou 6, interprete como a opção correspondente.
-
-📂 CATEGORIAS DO SISTEMA:
-${categorias.map(c => `- ${c.nome} (id: ${c.id})`).join('\n')}
+Se o usuário responder com um número (1, 2, 3...), interprete como a opção correspondente da lista acima.
+Cada prefeitura pode ter categorias diferentes - use SOMENTE as listadas acima.
 
 🎯 REGRAS IMPORTANTES:
 1. Seja educado, breve e objetivo - mensagens curtas funcionam melhor no WhatsApp
