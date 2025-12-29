@@ -136,6 +136,7 @@ function isSaudacao(textoNormalizado: string) {
 function isConfirmacao(textoNormalizado: string) {
   if (!textoNormalizado) return false;
   return [
+    '1',            // Número 1 para confirmar
     'confirmar',
     'confirmo',
     'sim',
@@ -181,7 +182,7 @@ function buildResumoConfirmacao(args: {
     `*Tipo do problema:* ${tipoLabel || '-'}\n` +
     `*Descrição:* ${dados.descricao || '-'}\n` +
     `*Mídia:* ${midiaLinha}\n\n` +
-    `Se estiver tudo certo, digite *confirmar* para enviar.\n` +
+    `Se estiver tudo certo, digite 1️⃣ para enviar.\n` +
     `_${prefeituraNome}_`
   );
 }
@@ -1123,6 +1124,13 @@ Cada prefeitura pode ter categorias diferentes - use SOMENTE as listadas acima.
       let novoEstado = 'coletando_dados';
       if (aiResult.pronto_para_confirmar) {
         novoEstado = 'confirmando';
+        // Usar diretamente o resumo de confirmação ao invés da resposta da IA
+        aiResult.resposta = buildResumoConfirmacao({
+          dados: dadosAtualizados,
+          fotos: midiasAtualizadas.fotos.length,
+          videos: midiasAtualizadas.videos.length,
+          prefeituraNome: prefeitura.nome,
+        });
       }
 
       await supabase
