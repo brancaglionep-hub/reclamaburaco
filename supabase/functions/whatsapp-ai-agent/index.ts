@@ -430,8 +430,11 @@ Deno.serve(async (req) => {
     }
     
     // Estados ativos do fluxo de criação de reclamação (não interpretar números como seleção de protocolo)
-    const estadosAtivosFluxo = ['dados_pessoais', 'localizacao', 'tipo_problema', 'descricao', 'midia', 'confirmacao'];
+    // Inclui 'coletando_dados' que é usado em alguns fluxos
+    const estadosAtivosFluxo = ['dados_pessoais', 'localizacao', 'tipo_problema', 'descricao', 'midia', 'confirmacao', 'coletando_dados'];
     const estaEmFluxoAtivo = estadosAtivosFluxo.includes(conversaData.estado);
+    
+    console.log(`Estado da conversa: ${conversaData.estado} - Em fluxo ativo: ${estaEmFluxoAtivo}`);
     
     // Se mandou número simples (1, 2, 3) pode ser seleção de reclamação anterior
     // MAS SOMENTE se NÃO estiver em um fluxo ativo de criação de reclamação
