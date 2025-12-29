@@ -21,6 +21,12 @@ interface SendResult {
   messageId?: string;
 }
 
+interface EvolutionConfig {
+  apiUrl: string;
+  apiKey: string;
+  instanceName: string;
+}
+
 // Send Email via Resend
 async function sendEmail(to: string, subject: string, message: string, prefeituraNome: string): Promise<SendResult> {
   if (!resend) {
@@ -138,13 +144,8 @@ async function sendSMS(to: string, message: string): Promise<SendResult> {
   }
 }
 
-// Send WhatsApp via Vonage Messages API
-async function sendWhatsApp(to: string, message: string): Promise<SendResult> {
-  if (!vonageApiKey || !vonageApiSecret) {
-    console.log("[WHATSAPP] Vonage not configured, skipping...");
-    return { success: false, error: "Vonage não configurado" };
-  }
-
+// Send WhatsApp via Evolution API
+async function sendWhatsAppEvolution(to: string, message: string, config: EvolutionConfig): Promise<SendResult> {
   try {
     // Format phone number
     let formattedPhone = to.replace(/\D/g, "");
@@ -152,35 +153,32 @@ async function sendWhatsApp(to: string, message: string): Promise<SendResult> {
       formattedPhone = "55" + formattedPhone;
     }
 
-    console.log(`[WHATSAPP] Sending to ${formattedPhone} via Vonage`);
+    console.log(`[WHATSAPP] Sending to ${formattedPhone} via Evolution API`);
 
-    // Create JWT for Vonage Messages API authentication
-    const credentials = btoa(`${vonageApiKey}:${vonageApiSecret}`);
+    const apiUrl = config.apiUrl.replace(/\/$/, "");
+    const url = `${apiUrl}/message/sendText/${config.instanceName}`;
 
-    const response = await fetch("https://messages-sandbox.nexmo.com/v1/messages", {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Basic ${credentials}`,
+        "apikey": config.apiKey,
       },
       body: JSON.stringify({
-        message_type: "text",
+        number: formattedPhone,
         text: message,
-        to: formattedPhone,
-        from: "14157386102", // Vonage Sandbox WhatsApp number
-        channel: "whatsapp",
       }),
     });
 
     const data = await response.json();
-    console.log("[WHATSAPP] Vonage response:", JSON.stringify(data));
+    console.log("[WHATSAPP] Evolution response:", JSON.stringify(data));
 
-    if (response.ok && data.message_uuid) {
-      console.log("[WHATSAPP] Sent successfully:", data.message_uuid);
-      return { success: true, messageId: data.message_uuid };
+    if (response.ok && data.key?.id) {
+      console.log("[WHATSAPP] Sent successfully:", data.key.id);
+      return { success: true, messageId: data.key.id };
     } else {
-      const errorMessage = data.title || data.detail || "Erro ao enviar WhatsApp";
-      console.error("[WHATSAPP] Vonage error:", errorMessage);
+      const errorMessage = data.message || data.error || "Erro ao enviar WhatsApp";
+      console.error("[WHATSAPP] Evolution error:", errorMessage);
       return { success: false, error: errorMessage };
     }
   } catch (error: unknown) {
@@ -209,10 +207,10 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch alert details
+    // Fetch alert details with prefeitura info including Evolution API config
     const { data: alerta, error: alertaError } = await supabase
       .from("alertas")
-      .select("*, prefeitura:prefeituras(nome)")
+      .select("*, prefeitura:prefeituras(nome, evolution_api_url, evolution_api_key, evolution_instance_name, evolution_connected)")
       .eq("id", alertaId)
       .single();
 
@@ -222,6 +220,45 @@ serve(async (req) => {
         status: 404,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
+    }
+
+    // Check Evolution API configuration if WhatsApp is selected
+    let evolutionConfig: EvolutionConfig | null = null;
+    if (alerta.canais.includes("whatsapp")) {
+      const prefeitura = alerta.prefeitura;
+      
+      // Try prefeitura-specific config first
+      if (prefeitura?.evolution_api_url && prefeitura?.evolution_api_key && prefeitura?.evolution_instance_name && prefeitura?.evolution_connected) {
+        evolutionConfig = {
+          apiUrl: prefeitura.evolution_api_url,
+          apiKey: prefeitura.evolution_api_key,
+          instanceName: prefeitura.evolution_instance_name,
+        };
+        console.log("[WHATSAPP] Using prefeitura-specific Evolution API config");
+      } else {
+        // Fallback to global config
+        const { data: globalConfig } = await supabase
+          .from("configuracoes_sistema")
+          .select("valor")
+          .eq("chave", "evolution_api")
+          .single();
+
+        if (globalConfig?.valor) {
+          const config = globalConfig.valor as { apiUrl?: string; apiKey?: string; instanceName?: string };
+          if (config.apiUrl && config.apiKey && config.instanceName) {
+            evolutionConfig = {
+              apiUrl: config.apiUrl,
+              apiKey: config.apiKey,
+              instanceName: config.instanceName,
+            };
+            console.log("[WHATSAPP] Using global Evolution API config");
+          }
+        }
+      }
+
+      if (!evolutionConfig) {
+        console.warn("[WHATSAPP] Evolution API not configured for this prefeitura");
+      }
     }
 
     // Fetch citizens to notify
@@ -263,7 +300,7 @@ serve(async (req) => {
     let totalErros = 0;
 
     // Build message
-    const mensagemCompleta = `🚨 ALERTA OFICIAL – ${prefeituraNome}\n\n${alerta.titulo}\n\n${alerta.mensagem}\n\nEm caso de emergência ligue 199.\nMensagem oficial da Prefeitura.`;
+    const mensagemCompleta = `🚨 *ALERTA OFICIAL – ${prefeituraNome}*\n\n*${alerta.titulo}*\n\n${alerta.mensagem}\n\n_Em caso de emergência ligue 199._\n_Mensagem oficial da Prefeitura._`;
 
     console.log(`Iniciando envio de alerta ${alertaId} para ${totalCidadaos} cidadãos via ${alerta.canais.join(", ")}`);
 
@@ -300,8 +337,11 @@ serve(async (req) => {
             if (!cidadao.telefone) {
               console.log(`[WHATSAPP] Cidadão ${cidadao.nome} sem telefone cadastrado`);
               sendResult = { success: false, error: "Telefone não cadastrado" };
+            } else if (!evolutionConfig) {
+              console.log(`[WHATSAPP] Evolution API não configurada`);
+              sendResult = { success: false, error: "WhatsApp não configurado para esta prefeitura" };
             } else {
-              sendResult = await sendWhatsApp(cidadao.telefone, mensagemCompleta);
+              sendResult = await sendWhatsAppEvolution(cidadao.telefone, mensagemCompleta, evolutionConfig);
             }
             break;
         }
