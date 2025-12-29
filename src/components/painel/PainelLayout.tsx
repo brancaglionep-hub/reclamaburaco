@@ -80,8 +80,8 @@ const PainelLayout = () => {
     { path: `${basePath}/cidadaos`, label: "Cidadãos", icon: Users },
     { path: `${basePath}/bairros`, label: "Bairros", icon: MapPin },
     { path: `${basePath}/categorias`, label: "Categorias", icon: Tag },
-    { path: `${basePath}/whatsapp`, label: "WhatsApp", icon: MessageCircle },
-    { path: `${basePath}/integracoes`, label: "Integrações", icon: Plug },
+    { path: `${basePath}/whatsapp`, label: "WhatsApp", icon: MessageCircle, beta: true },
+    { path: `${basePath}/integracoes`, label: "Integrações", icon: Plug, beta: true },
     { path: `${basePath}/configuracoes`, label: "Configurações", icon: Settings },
   ];
 
@@ -152,6 +152,11 @@ const PainelLayout = () => {
                 >
                   <item.icon className="w-5 h-5" />
                   <span className="font-medium">{item.label}</span>
+                  {item.beta && (
+                    <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-600 dark:text-orange-400 uppercase tracking-wide">
+                      Beta
+                    </span>
+                  )}
                 </Link>
               );
             })}
