@@ -580,19 +580,6 @@ const PainelWhatsApp = () => {
                   </div>
                 </div>
                 
-                {/* Dados coletados */}
-                {Object.keys(conversaSelecionada.dados_coletados || {}).length > 0 && (
-                  <div className="mt-3 p-3 bg-background rounded-lg text-sm">
-                    <p className="font-medium text-foreground mb-2">Dados coletados:</p>
-                    <div className="grid grid-cols-2 gap-2 text-muted-foreground">
-                      {Object.entries(conversaSelecionada.dados_coletados).map(([key, value]) => (
-                        <p key={key}>
-                          <span className="font-medium">{key}:</span> {String(value)}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Mensagens */}
