@@ -334,29 +334,171 @@ Deno.serve(async (req) => {
 
     // Verificar comando de consulta ou protocolo direto
     const textoLower = mensagem.texto.toLowerCase().trim();
+    const textoNorm = normText(mensagem.texto);
     const textoUpper = mensagem.texto.toUpperCase().trim();
     
     // Função para verificar se parece um protocolo (ex: REC-2025-12345, 2025-001, etc.)
     const pareceProtocolo = (texto: string): boolean => {
       // Padrões comuns de protocolo
       const padroes = [
-        /^REC-\d{4}-\d+$/i,           // REC-2025-12345
+        /^REC-\d{4,}-\d+$/i,          // REC-2025-12345 ou REC-20250101-1234
         /^\d{4}-\d{3,}$/,             // 2025-00123
-        /^[A-Z]{2,4}-\d{4}-\d+$/i,    // ABC-2025-123
+        /^[A-Z]{2,4}-\d{4,}-\d+$/i,   // ABC-2025-123
         /^[A-Z]{2,4}\d{4,}/i,         // ABC20250001
         /^\d{6,}$/,                   // 123456 (só números, 6+ dígitos)
       ];
       return padroes.some(p => p.test(texto.replace(/\s/g, '')));
     };
     
+    // Extrair protocolo de texto (pode estar em uma frase)
+    const extrairProtocolo = (texto: string): string | null => {
+      // Padrão REC-XXXXXXXX-XXXX
+      const matchRec = texto.match(/REC-\d{4,}-\d+/i);
+      if (matchRec) return matchRec[0].toUpperCase();
+      
+      // Outros padrões
+      const matchGeneric = texto.match(/[A-Z]{2,4}-\d{4,}-\d+/i);
+      if (matchGeneric) return matchGeneric[0].toUpperCase();
+      
+      return null;
+    };
+    
+    // Detectar intenção de consulta de andamento/status
+    const frasesConsulta = [
+      'quero ver',
+      'ver andamento',
+      'ver o andamento',
+      'ver status',
+      'ver o status',
+      'como esta',
+      'como ta',
+      'andamento da reclamacao',
+      'andamento da minha reclamacao',
+      'status da reclamacao',
+      'status da minha reclamacao',
+      'acompanhar reclamacao',
+      'acompanhar minha reclamacao',
+      'consultar reclamacao',
+      'minha reclamacao',
+      'situacao da reclamacao',
+      'qual o status',
+      'qual status',
+      'qual andamento',
+      'qual o andamento',
+    ];
+    
+    const querConsultarAndamento = frasesConsulta.some(f => textoNorm.includes(f));
+    
     // Detectar se é consulta de protocolo (comando explícito ou parece protocolo)
     const isConsultaExplicita = textoLower.startsWith('/consultar ') || textoLower.startsWith('/status ') || textoLower.startsWith('consultar ');
     const isProtocoloDireto = pareceProtocolo(mensagem.texto.trim());
+    const protocoloNoTexto = extrairProtocolo(mensagem.texto);
     
-    if (isConsultaExplicita || isProtocoloDireto) {
-      // Extrair protocolo do texto
+    // Se quer consultar andamento mas não mandou protocolo, perguntar
+    if (querConsultarAndamento && !protocoloNoTexto && !isProtocoloDireto) {
+      // Verificar se tem reclamações anteriores
+      if (reclamacoesAnteriores.length > 0) {
+        const statusEmoji: Record<string, string> = {
+          recebida: '📥',
+          em_andamento: '🔄',
+          resolvida: '✅',
+          arquivada: '📁',
+        };
+        
+        let resposta = `📋 *Suas reclamações recentes:*\n\n`;
+        reclamacoesAnteriores.forEach((rec, i) => {
+          resposta += `${i + 1}. ${statusEmoji[rec.status] || '📌'} *${rec.protocolo}*\n`;
+          resposta += `   ${rec.categoria?.[0]?.nome || 'Problema'} - ${rec.rua}\n\n`;
+        });
+        resposta += `Digite o protocolo para ver os detalhes, ou envie o número (1, 2...) da reclamação que quer consultar.`;
+        
+        return new Response(
+          JSON.stringify({ resposta, acao: 'listar_consulta' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else {
+        return new Response(
+          JSON.stringify({
+            resposta: `📋 Você ainda não tem reclamações registradas com este número.\n\nSe quiser consultar uma reclamação, me envie o número do *protocolo* (ex: REC-20250101-1234).`,
+            acao: 'consulta',
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+    
+    // Se mandou número simples (1, 2, 3) pode ser seleção de reclamação anterior
+    const numeroSimples = parseInt(textoLower);
+    if (!isNaN(numeroSimples) && numeroSimples >= 1 && numeroSimples <= 3 && reclamacoesAnteriores.length >= numeroSimples) {
+      const recSelecionada = reclamacoesAnteriores[numeroSimples - 1];
+      // Consultar esta reclamação
+      const { data: consultaResult } = await supabase
+        .rpc('consultar_protocolo', {
+          _protocolo: recSelecionada.protocolo,
+          _prefeitura_id: prefeitura.id,
+        });
+
+      if (consultaResult && consultaResult.length > 0) {
+        const rec = consultaResult[0];
+        const statusMap: Record<string, string> = {
+          recebida: '📥 Recebida - Aguardando análise',
+          em_andamento: '🔄 Em Andamento - Equipe trabalhando',
+          resolvida: '✅ Resolvida',
+          arquivada: '📁 Arquivada',
+        };
+        
+        const { data: historicoResult } = await supabase
+          .rpc('consultar_historico_protocolo', {
+            _protocolo: recSelecionada.protocolo,
+            _prefeitura_id: prefeitura.id,
+          });
+        
+        let respostaConsulta = `📋 *Consulta de Protocolo*\n\n` +
+          `*Protocolo:* ${rec.protocolo}\n` +
+          `*Status:* ${statusMap[rec.status] || rec.status}\n` +
+          `*Local:* ${rec.rua}${rec.bairro_nome ? `, ${rec.bairro_nome}` : ''}\n` +
+          `*Categoria:* ${rec.categoria_nome || 'Não especificada'}\n` +
+          `*Data:* ${new Date(rec.created_at).toLocaleDateString('pt-BR')}\n`;
+        
+        if (historicoResult && historicoResult.length > 0) {
+          respostaConsulta += `\n📜 *Histórico de Movimentações:*\n`;
+          historicoResult.slice(0, 5).forEach((h: any) => {
+            const dataHist = new Date(h.created_at).toLocaleDateString('pt-BR', { 
+              day: '2-digit', 
+              month: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            const statusAnterior = h.status_anterior ? statusMap[h.status_anterior]?.split(' ')[0] || h.status_anterior : 'Novo';
+            const statusNovo = statusMap[h.status_novo]?.split(' ')[0] || h.status_novo;
+            respostaConsulta += `• ${dataHist} - ${statusAnterior} ➔ ${statusNovo}\n`;
+            if (h.observacao) {
+              respostaConsulta += `  _${h.observacao}_\n`;
+            }
+          });
+        }
+        
+        if (rec.resposta_prefeitura) {
+          respostaConsulta += `\n💬 *Resposta da Prefeitura:*\n${rec.resposta_prefeitura}`;
+        }
+        respostaConsulta += `\n\n_${prefeitura.nome}_`;
+
+        return new Response(
+          JSON.stringify({ resposta: respostaConsulta, acao: 'consulta' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+    
+    // Usar protocolo extraído do texto ou o texto direto
+    const protocoloParaConsultar = protocoloNoTexto || (isProtocoloDireto ? textoUpper.replace(/\s/g, '') : null);
+    
+    if (isConsultaExplicita || protocoloParaConsultar) {
+      // Usar protocolo já extraído ou extrair do comando
       let protocolo = '';
-      if (isConsultaExplicita) {
+      if (protocoloParaConsultar) {
+        protocolo = protocoloParaConsultar;
+      } else if (isConsultaExplicita) {
         protocolo = mensagem.texto.substring(mensagem.texto.indexOf(' ') + 1).trim().toUpperCase();
       } else {
         protocolo = textoUpper.replace(/\s/g, '');
