@@ -429,9 +429,14 @@ Deno.serve(async (req) => {
       }
     }
     
+    // Estados ativos do fluxo de criação de reclamação (não interpretar números como seleção de protocolo)
+    const estadosAtivosFluxo = ['dados_pessoais', 'localizacao', 'tipo_problema', 'descricao', 'midia', 'confirmacao'];
+    const estaEmFluxoAtivo = estadosAtivosFluxo.includes(conversaData.estado);
+    
     // Se mandou número simples (1, 2, 3) pode ser seleção de reclamação anterior
+    // MAS SOMENTE se NÃO estiver em um fluxo ativo de criação de reclamação
     const numeroSimples = parseInt(textoLower);
-    if (!isNaN(numeroSimples) && numeroSimples >= 1 && numeroSimples <= 3 && reclamacoesAnteriores.length >= numeroSimples) {
+    if (!estaEmFluxoAtivo && !isNaN(numeroSimples) && numeroSimples >= 1 && numeroSimples <= 3 && reclamacoesAnteriores.length >= numeroSimples) {
       const recSelecionada = reclamacoesAnteriores[numeroSimples - 1];
       // Consultar esta reclamação
       const { data: consultaResult } = await supabase
