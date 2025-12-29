@@ -227,37 +227,47 @@ serve(async (req) => {
     if (alerta.canais.includes("whatsapp")) {
       const prefeitura = alerta.prefeitura;
       
-      // Try prefeitura-specific config first
-      if (prefeitura?.evolution_api_url && prefeitura?.evolution_api_key && prefeitura?.evolution_instance_name && prefeitura?.evolution_connected) {
-        evolutionConfig = {
-          apiUrl: prefeitura.evolution_api_url,
-          apiKey: prefeitura.evolution_api_key,
-          instanceName: prefeitura.evolution_instance_name,
-        };
-        console.log("[WHATSAPP] Using prefeitura-specific Evolution API config");
-      } else {
-        // Fallback to global config
-        const { data: globalConfig } = await supabase
-          .from("configuracoes_sistema")
-          .select("valor")
-          .eq("chave", "evolution_api")
-          .single();
+      // First, check global config (same priority as send-whatsapp-message)
+      const { data: globalConfig } = await supabase
+        .from("configuracoes_sistema")
+        .select("valor")
+        .eq("chave", "evolution_api")
+        .single();
 
-        if (globalConfig?.valor) {
-          const config = globalConfig.valor as { apiUrl?: string; apiKey?: string; instanceName?: string };
-          if (config.apiUrl && config.apiKey && config.instanceName) {
-            evolutionConfig = {
-              apiUrl: config.apiUrl,
-              apiKey: config.apiKey,
-              instanceName: config.instanceName,
-            };
-            console.log("[WHATSAPP] Using global Evolution API config");
-          }
-        }
+      let evolutionUrl = '';
+      let evolutionKey = '';
+
+      // Prioritize global config, then local (same as send-whatsapp-message)
+      if (globalConfig?.valor) {
+        const config = globalConfig.valor as { url?: string; api_key?: string };
+        evolutionUrl = config.url || '';
+        evolutionKey = config.api_key || '';
+      }
+      if (!evolutionUrl && prefeitura?.evolution_api_url) {
+        evolutionUrl = prefeitura.evolution_api_url;
+      }
+      if (!evolutionKey && prefeitura?.evolution_api_key) {
+        evolutionKey = prefeitura.evolution_api_key;
       }
 
-      if (!evolutionConfig) {
-        console.warn("[WHATSAPP] Evolution API not configured for this prefeitura");
+      const instanceName = prefeitura?.evolution_instance_name;
+
+      if (evolutionUrl && evolutionKey && instanceName && prefeitura?.evolution_connected) {
+        evolutionConfig = {
+          apiUrl: evolutionUrl,
+          apiKey: evolutionKey,
+          instanceName: instanceName,
+        };
+        console.log("[WHATSAPP] Using Evolution API config");
+        console.log("[WHATSAPP] URL:", evolutionUrl);
+        console.log("[WHATSAPP] Instance:", instanceName);
+        console.log("[WHATSAPP] API Key (first 8 chars):", evolutionKey?.substring(0, 8) + "...");
+      } else {
+        console.warn("[WHATSAPP] Evolution API not properly configured");
+        console.log("[WHATSAPP] URL:", evolutionUrl);
+        console.log("[WHATSAPP] Key exists:", !!evolutionKey);
+        console.log("[WHATSAPP] Instance:", instanceName);
+        console.log("[WHATSAPP] Connected:", prefeitura?.evolution_connected);
       }
     }
 
