@@ -1,14 +1,21 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate, Link, useLocation, useParams } from "react-router-dom";
-import { Building2, LayoutDashboard, FileText, MapPin, Tag, Settings, LogOut, Menu, X, Star, AlertTriangle, Users, Plug, MessageCircle } from "lucide-react";
+import { Building2, LayoutDashboard, FileText, MapPin, Tag, Settings, LogOut, Menu, X, Star, AlertTriangle, Users, Plug, MessageCircle, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Prefeitura {
   id: string;
   nome: string;
   cidade: string;
   logo_url: string | null;
+  plano: "starter" | "pro";
 }
 
 const PainelLayout = () => {
@@ -49,12 +56,12 @@ const PainelLayout = () => {
       // Fetch prefeitura data
       const { data: prefData } = await supabase
         .from("prefeituras")
-        .select("id, nome, cidade, logo_url")
+        .select("id, nome, cidade, logo_url, plano")
         .eq("id", prefeituraId)
         .single();
 
       if (prefData) {
-        setPrefeitura(prefData);
+        setPrefeitura(prefData as Prefeitura);
       }
 
       setLoading(false);
@@ -71,6 +78,7 @@ const PainelLayout = () => {
   };
 
   const basePath = `/painel/${prefeituraId}`;
+  const isPro = prefeitura?.plano === "pro";
   
   const navItems = [
     { path: basePath, label: "Dashboard", icon: LayoutDashboard },
@@ -80,8 +88,8 @@ const PainelLayout = () => {
     { path: `${basePath}/cidadaos`, label: "Cidadãos", icon: Users },
     { path: `${basePath}/bairros`, label: "Bairros", icon: MapPin },
     { path: `${basePath}/categorias`, label: "Categorias", icon: Tag },
-    { path: `${basePath}/whatsapp`, label: "WhatsApp", icon: MessageCircle, beta: true },
-    { path: `${basePath}/integracoes`, label: "Integrações", icon: Plug, beta: true },
+    { path: `${basePath}/whatsapp`, label: "WhatsApp", icon: MessageCircle, beta: true, proOnly: true },
+    { path: `${basePath}/integracoes`, label: "Integrações", icon: Plug, beta: true, proOnly: true },
     { path: `${basePath}/configuracoes`, label: "Configurações", icon: Settings },
   ];
 
@@ -137,29 +145,52 @@ const PainelLayout = () => {
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1">
-            {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
-                  {item.beta && (
-                    <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-600 dark:text-orange-400 uppercase tracking-wide">
-                      Beta
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+            <TooltipProvider delayDuration={0}>
+              {navItems.map((item) => {
+                const isActive = location.pathname === item.path;
+                const isLocked = item.proOnly && !isPro;
+
+                if (isLocked) {
+                  return (
+                    <Tooltip key={item.path}>
+                      <TooltipTrigger asChild>
+                        <div
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-not-allowed opacity-50 text-muted-foreground"
+                        >
+                          <item.icon className="w-5 h-5" />
+                          <span className="font-medium">{item.label}</span>
+                          <Lock className="ml-auto w-4 h-4" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="bg-foreground text-background">
+                        <p>Disponível apenas no plano <strong>PRO</strong></p>
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                }
+
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                    {item.beta && (
+                      <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-600 dark:text-orange-400 uppercase tracking-wide">
+                        Beta
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </TooltipProvider>
           </nav>
 
           {/* Logout */}

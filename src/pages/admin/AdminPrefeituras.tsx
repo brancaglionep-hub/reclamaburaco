@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Crown, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Prefeitura {
   id: string;
@@ -25,6 +32,7 @@ interface Prefeitura {
   cidade: string;
   slug: string;
   ativo: boolean;
+  plano: "starter" | "pro";
   email_contato: string | null;
   telefone_contato: string | null;
 }
@@ -38,6 +46,7 @@ const AdminPrefeituras = () => {
     nome: "",
     cidade: "",
     slug: "",
+    plano: "starter" as "starter" | "pro",
     email_contato: "",
     telefone_contato: ""
   });
@@ -74,6 +83,7 @@ const AdminPrefeituras = () => {
         nome: prefeitura.nome,
         cidade: prefeitura.cidade,
         slug: prefeitura.slug,
+        plano: prefeitura.plano || "starter",
         email_contato: prefeitura.email_contato || "",
         telefone_contato: prefeitura.telefone_contato || ""
       });
@@ -83,6 +93,7 @@ const AdminPrefeituras = () => {
         nome: "",
         cidade: "",
         slug: "",
+        plano: "starter",
         email_contato: "",
         telefone_contato: ""
       });
@@ -103,6 +114,7 @@ const AdminPrefeituras = () => {
           nome: formData.nome,
           cidade: formData.cidade,
           slug: formData.slug,
+          plano: formData.plano,
           email_contato: formData.email_contato || null,
           telefone_contato: formData.telefone_contato || null
         })
@@ -122,6 +134,7 @@ const AdminPrefeituras = () => {
           nome: formData.nome,
           cidade: formData.cidade,
           slug: formData.slug,
+          plano: formData.plano,
           email_contato: formData.email_contato || null,
           telefone_contato: formData.telefone_contato || null
         });
@@ -194,6 +207,7 @@ const AdminPrefeituras = () => {
               <TableHead>Cidade</TableHead>
               <TableHead>Nome</TableHead>
               <TableHead>Slug</TableHead>
+              <TableHead>Plano</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
@@ -204,6 +218,25 @@ const AdminPrefeituras = () => {
                 <TableCell className="font-medium">{prefeitura.cidade}</TableCell>
                 <TableCell>{prefeitura.nome}</TableCell>
                 <TableCell className="text-muted-foreground">/{prefeitura.slug}</TableCell>
+                <TableCell>
+                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                    prefeitura.plano === "pro" 
+                      ? "bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700" 
+                      : "bg-slate-100 text-slate-600"
+                  }`}>
+                    {prefeitura.plano === "pro" ? (
+                      <>
+                        <Crown className="w-3 h-3" />
+                        PRO
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3 h-3" />
+                        STARTER
+                      </>
+                    )}
+                  </span>
+                </TableCell>
                 <TableCell>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     prefeitura.ativo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
@@ -287,6 +320,33 @@ const AdminPrefeituras = () => {
                 value={formData.slug}
                 onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Plano *</label>
+              <Select
+                value={formData.plano}
+                onValueChange={(value: "starter" | "pro") => setFormData({ ...formData, plano: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="starter">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-slate-500" />
+                      <span>Starter</span>
+                      <span className="text-xs text-muted-foreground">- Básico</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="pro">
+                    <div className="flex items-center gap-2">
+                      <Crown className="w-4 h-4 text-amber-500" />
+                      <span>Pro</span>
+                      <span className="text-xs text-muted-foreground">- WhatsApp + Integrações</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="text-sm font-medium mb-2 block">E-mail de contato</label>
