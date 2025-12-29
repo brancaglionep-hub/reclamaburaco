@@ -23,7 +23,6 @@ import { toast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from "recharts";
 
 const ITEMS_PER_PAGE = 10;
-const SLA_LIMITE_DIAS = 15;
 
 interface OutletContext {
   prefeituraId: string;
@@ -146,10 +145,26 @@ const PainelAvaliacoes = () => {
     enabled: !!prefeituraId,
   });
 
+  // Buscar configurações de SLA da prefeitura
+  const { data: configSla } = useQuery({
+    queryKey: ["config-sla-avaliacoes", prefeituraId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("prefeitura_configuracoes")
+        .select("sla_padrao_dias, sla_alerta_percentual")
+        .eq("prefeitura_id", prefeituraId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!prefeituraId,
+  });
+
+  const slaPadraoDias = configSla?.sla_padrao_dias ?? 7;
+
   // Processar avaliações com dados de SLA
   const avaliacoesProcessadas: AvaliacaoProcessada[] = avaliacoes.map(a => {
     const diasResolucao = a.reclamacoes ? calcularDiasResolucao(a.reclamacoes.created_at, a.reclamacoes.updated_at) : 0;
-    const slaEstourado = diasResolucao > SLA_LIMITE_DIAS;
+    const slaEstourado = diasResolucao > slaPadraoDias;
     return { ...a, diasResolucao, slaEstourado };
   });
 
