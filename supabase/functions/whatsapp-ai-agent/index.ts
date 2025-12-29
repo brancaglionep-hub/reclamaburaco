@@ -80,14 +80,14 @@ const ETAPAS_FLUXO = [
   'confirmacao',       // Etapa 6: Confirmar e enviar
 ];
 
-// Tipos de problema (igual ao ProblemTypeSelector)
+// Tipos de problema (igual ao ProblemTypeSelector) - com números para facilitar seleção
 const TIPOS_PROBLEMA = [
-  { id: 'buraco', label: 'Buraco na rua', emoji: '🕳️' },
-  { id: 'danificada', label: 'Rua danificada', emoji: '🚧' },
-  { id: 'alagada', label: 'Rua alagada', emoji: '🌧️' },
-  { id: 'desnivel', label: 'Desnível na pista', emoji: '⚠️' },
-  { id: 'dificil', label: 'Rua difícil de trafegar', emoji: '🚗' },
-  { id: 'outro', label: 'Outro problema', emoji: '❓' },
+  { id: 'buraco', label: 'Buraco na rua', numero: 1 },
+  { id: 'danificada', label: 'Rua danificada', numero: 2 },
+  { id: 'alagada', label: 'Rua alagada', numero: 3 },
+  { id: 'desnivel', label: 'Desnível na pista', numero: 4 },
+  { id: 'dificil', label: 'Rua difícil de trafegar', numero: 5 },
+  { id: 'outro', label: 'Outro problema', numero: 6 },
 ];
 
 function normText(input: string) {
@@ -101,6 +101,7 @@ function normText(input: string) {
 function isPularMidia(textoNormalizado: string) {
   if (!textoNormalizado) return false;
   return [
+    '1',            // Número 1 para continuar/revisar
     'proximo',
     'seguir',
     'continuar',
@@ -657,7 +658,7 @@ Deno.serve(async (req) => {
       etapaAtual = 'confirmacao';
     }
 
-     const tiposProblemaTexto = TIPOS_PROBLEMA.map(t => `${t.emoji} ${t.label}`).join('\n');
+     const tiposProblemaTexto = TIPOS_PROBLEMA.map(t => `${t.numero}️⃣ ${t.label}`).join('\n');
 
       // Ajustes de fluxo na etapa de mídia (evitar perguntas repetidas)
       const textoNormalizado = normText(mensagem.texto || '');
@@ -718,7 +719,7 @@ Deno.serve(async (req) => {
 
           return new Response(
             JSON.stringify({
-              resposta: `✅ Mídia recebida: ${lista}.\n\nSe quiser enviar mais, pode mandar agora. Se não, digite *próximo* para revisar.`,
+              resposta: `✅ Mídia recebida: ${lista}.\n\nSe quiser enviar mais, pode mandar agora.\n\nOu digite 1️⃣ para *revisar e enviar*`,
               acao: 'continuar',
               protocolo: null,
             }),
@@ -905,8 +906,22 @@ ${usuarioRecorrente ? `
 📍 BAIRROS DA CIDADE:
 ${bairros.map(b => `- ${b.nome} (id: ${b.id})`).join('\n') || 'Nenhum cadastrado - aceitar qualquer nome'}
 
-🏷️ TIPOS DE PROBLEMA:
-${TIPOS_PROBLEMA.map(t => `- ${t.emoji} ${t.label} (id: ${t.id})`).join('\n')}
+🏷️ TIPOS DE PROBLEMA (SEMPRE mostre com números para o usuário escolher facilmente):
+${TIPOS_PROBLEMA.map(t => `${t.numero}️⃣ ${t.label}`).join('\n')}
+
+Quando pedir o tipo de problema, SEMPRE liste assim:
+"Qual o tipo do problema?
+
+1️⃣ Buraco na rua
+2️⃣ Rua danificada
+3️⃣ Rua alagada
+4️⃣ Desnível na pista
+5️⃣ Rua difícil de trafegar
+6️⃣ Outro problema
+
+Digite o número da opção."
+
+Se o usuário responder 1, 2, 3, 4, 5 ou 6, interprete como a opção correspondente.
 
 📂 CATEGORIAS DO SISTEMA:
 ${categorias.map(c => `- ${c.nome} (id: ${c.id})`).join('\n')}
