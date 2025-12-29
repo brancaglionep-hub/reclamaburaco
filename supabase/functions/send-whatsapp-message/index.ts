@@ -86,15 +86,17 @@ Deno.serve(async (req) => {
     // Enviar via Evolution API
     const evolutionUrl = prefeitura.evolution_api_url.replace(/\/$/, '');
     const instanceName = prefeitura.evolution_instance_name;
+    const apiKey = prefeitura.evolution_api_key;
 
     console.log('Enviando via Evolution API...');
     console.log('URL:', `${evolutionUrl}/message/sendText/${instanceName}`);
+    console.log('API Key (primeiros 8 chars):', apiKey?.substring(0, 8) + '...');
 
     const evolutionResponse = await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': prefeitura.evolution_api_key,
+        'apikey': apiKey,
       },
       body: JSON.stringify({
         number: numero,
@@ -102,11 +104,20 @@ Deno.serve(async (req) => {
       }),
     });
 
-    const evolutionResult = await evolutionResponse.json();
-    console.log('Resposta Evolution:', evolutionResult);
+    const evolutionResultText = await evolutionResponse.text();
+    console.log('Status HTTP:', evolutionResponse.status);
+    console.log('Resposta Evolution (raw):', evolutionResultText);
+
+    let evolutionResult;
+    try {
+      evolutionResult = JSON.parse(evolutionResultText);
+    } catch {
+      evolutionResult = { raw: evolutionResultText };
+    }
 
     if (!evolutionResponse.ok) {
-      throw new Error(evolutionResult.message || 'Erro ao enviar mensagem');
+      console.error('Erro Evolution API:', evolutionResponse.status, evolutionResult);
+      throw new Error(evolutionResult?.message || evolutionResult?.response?.message || `Erro HTTP ${evolutionResponse.status}`);
     }
 
     // Salvar mensagem no banco
