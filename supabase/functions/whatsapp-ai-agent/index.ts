@@ -918,6 +918,20 @@ ${categorias.length > 0
 6. Antes de criar, mostre resumo e peça confirmação
 7. Use markdown do WhatsApp: *negrito* _itálico_
 
+📍 CONFIRMAÇÃO DE RUA (OBRIGATÓRIO):
+Quando identificar a rua na mensagem do cidadão, SEMPRE pergunte para confirmar:
+"Entendi! A reclamação é para a *Rua [nome da rua identificada]*?
+
+1️⃣ Sim, é essa rua
+2️⃣ Não, é outra rua
+
+Digite o número da opção."
+
+- Se o cidadão responder "1" ou "sim", prossiga para a próxima etapa
+- Se responder "2" ou "não", peça para informar a rua correta
+- NÃO salve a rua nos dados_extraidos até o cidadão confirmar com "1" ou "sim"
+- Isso evita registrar reclamações no endereço errado!
+
 📲 COMANDOS:
 - *consultar PROTOCOLO* - Ver status
 - *minhas reclamações* - Listar reclamações
