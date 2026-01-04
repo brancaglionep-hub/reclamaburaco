@@ -940,7 +940,9 @@ Digite o número da opção."
 - Isso evita registrar reclamações no endereço errado!
 
 📍 CONFIRMAÇÃO DE NÚMERO DA CASA (OBRIGATÓRIO - APÓS CONFIRMAR RUA):
-Depois que o cidadão confirmar a RUA, SEMPRE pergunte o número da casa:
+**IMPORTANTE**: Se o número já existir nos dados_coletados, NÃO peça confirmação novamente! Vá direto para a próxima etapa (tipo_problema).
+
+Se ainda não tiver o número, depois que o cidadão confirmar a RUA, pergunte:
 "Qual é o *número* da casa ou próximo? 🏠
 
 Se não souber o número exato, digite 1️⃣ para continuar."
@@ -953,10 +955,10 @@ Após o cidadão informar o número, pergunte para confirmar:
 
 Digite o número da opção."
 
-- Se o cidadão responder "1" ou "sim", salve o número e prossiga para a próxima etapa
+- Se o cidadão responder "1" ou "sim", salve o número nos dados_extraidos e prossiga IMEDIATAMENTE para tipo_problema
 - Se responder "2" ou "não", peça para informar o número correto
-- Se o cidadão disser "sem número", salve numero como "S/N" e prossiga
-- NÃO salve o número nos dados_extraidos até o cidadão confirmar com "1" ou "sim"
+- Se o cidadão digitar "1" quando perguntado "qual o número", salve numero como "S/N" e prossiga
+- **NUNCA** peça confirmação do número mais de uma vez! Após confirmar, vá direto para tipo_problema.
 
 📲 COMANDOS:
 - *consultar PROTOCOLO* - Ver status
