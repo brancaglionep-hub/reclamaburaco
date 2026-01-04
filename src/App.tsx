@@ -69,7 +69,6 @@ const App = () => (
             <Route path="/" element={<Home />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/avaliar" element={<Avaliar />} />
-            <Route path="/auth" element={<Auth />} />
             
             {/* Super Admin Routes - MUST come before /:slug */}
             <Route path="/admin" element={<AdminLayout />}>
