@@ -301,7 +301,12 @@ Deno.serve(async (req) => {
     const conversaData = conversa as ConversaData;
 
     // Atualizar mídias se recebidas (evitar duplicação por reenvio do webhook)
-    let midiasAtualizadas = { ...conversaData.midias_coletadas };
+    // Garantir que midias_coletadas sempre tenha estrutura correta
+    const midiasBase = {
+      fotos: Array.isArray(conversaData.midias_coletadas?.fotos) ? conversaData.midias_coletadas.fotos : [],
+      videos: Array.isArray(conversaData.midias_coletadas?.videos) ? conversaData.midias_coletadas.videos : [],
+    };
+    let midiasAtualizadas = { ...midiasBase };
     if (mensagem.fotos.length > 0) {
       midiasAtualizadas.fotos = Array.from(new Set([...midiasAtualizadas.fotos, ...mensagem.fotos]));
     }
