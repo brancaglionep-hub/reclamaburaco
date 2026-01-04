@@ -1107,7 +1107,18 @@ Digite o número da opção."
     } else {
       // Atualizar conversa com novos dados
       let novoEstado = 'coletando_dados';
-      if (aiResult.pronto_para_confirmar) {
+      
+      // CORREÇÃO: Verificar se a IA indicou que é hora de pedir mídia
+      if (aiResult.nova_etapa === 'midia' && conversaData.estado !== 'aguardando_midia') {
+        console.log('IA indicou etapa de mídia, mudando estado para aguardando_midia');
+        novoEstado = 'aguardando_midia';
+        
+        // Adicionar pergunta sobre mídia à resposta se a IA não incluiu
+        const respostaLower = aiResult.resposta.toLowerCase();
+        if (!respostaLower.includes('foto') && !respostaLower.includes('video') && !respostaLower.includes('vídeo') && !respostaLower.includes('mídia')) {
+          aiResult.resposta += `\n\n📷 Agora você pode enviar *fotos* ou *vídeos* do problema.\n\nIsso ajuda muito a equipe a entender a situação!\n\n*Envie as mídias agora* ou digite 1️⃣ para *continuar sem mídia*.`;
+        }
+      } else if (aiResult.pronto_para_confirmar) {
         novoEstado = 'confirmando';
         // Usar diretamente o resumo de confirmação ao invés da resposta da IA
         aiResult.resposta = buildResumoConfirmacao({
