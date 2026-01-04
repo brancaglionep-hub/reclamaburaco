@@ -584,22 +584,29 @@ Deno.serve(async (req) => {
     const dadosAtuais = conversaData.dados_coletados;
     
     // Determinar etapa atual baseado nos dados coletados
+    // FLUXO: dados_pessoais -> localizacao (bairro+rua+numero) -> tipo_problema -> descricao -> midia -> confirmacao
     let etapaAtual = 'dados_pessoais';
     if (dadosAtuais.nome && dadosAtuais.email) {
       etapaAtual = 'localizacao';
     }
-    if (dadosAtuais.nome && dadosAtuais.email && dadosAtuais.rua && dadosAtuais.bairro) {
+    // Só avança para tipo_problema se tiver rua, bairro E número confirmados
+    if (dadosAtuais.nome && dadosAtuais.email && dadosAtuais.rua && dadosAtuais.bairro && dadosAtuais.numero) {
       etapaAtual = 'tipo_problema';
     }
-    if (dadosAtuais.nome && dadosAtuais.email && dadosAtuais.rua && dadosAtuais.bairro && dadosAtuais.categoria) {
+    if (dadosAtuais.nome && dadosAtuais.email && dadosAtuais.rua && dadosAtuais.bairro && dadosAtuais.numero && dadosAtuais.categoria) {
       etapaAtual = 'descricao';
     }
-    if (dadosAtuais.nome && dadosAtuais.email && dadosAtuais.rua && dadosAtuais.bairro && dadosAtuais.categoria && dadosAtuais.descricao) {
+    if (dadosAtuais.nome && dadosAtuais.email && dadosAtuais.rua && dadosAtuais.bairro && dadosAtuais.numero && dadosAtuais.categoria && dadosAtuais.descricao) {
       etapaAtual = 'midia';
     }
     if (conversaData.estado === 'confirmando') {
       etapaAtual = 'confirmacao';
     }
+    if (conversaData.estado === 'aguardando_midia') {
+      etapaAtual = 'midia';
+    }
+    
+    console.log('Etapa atual determinada:', etapaAtual, '| Dados:', JSON.stringify(dadosAtuais));
 
      const tiposProblemaTexto = TIPOS_PROBLEMA.map(t => `${t.numero}️⃣ ${t.label}`).join('\n');
 
@@ -927,10 +934,29 @@ Quando identificar a rua na mensagem do cidadão, SEMPRE pergunte para confirmar
 
 Digite o número da opção."
 
-- Se o cidadão responder "1" ou "sim", prossiga para a próxima etapa
+- Se o cidadão responder "1" ou "sim", prossiga para perguntar o NÚMERO da casa
 - Se responder "2" ou "não", peça para informar a rua correta
 - NÃO salve a rua nos dados_extraidos até o cidadão confirmar com "1" ou "sim"
 - Isso evita registrar reclamações no endereço errado!
+
+📍 CONFIRMAÇÃO DE NÚMERO DA CASA (OBRIGATÓRIO - APÓS CONFIRMAR RUA):
+Depois que o cidadão confirmar a RUA, SEMPRE pergunte o número da casa:
+"Qual é o *número* da casa ou local? 🏠
+
+Se não souber o número exato, digite *sem número*."
+
+Após o cidadão informar o número, pergunte para confirmar:
+"O número é *[número informado]*?
+
+1️⃣ Sim, o número é este mesmo
+2️⃣ Não, é outro número
+
+Digite o número da opção."
+
+- Se o cidadão responder "1" ou "sim", salve o número e prossiga para a próxima etapa
+- Se responder "2" ou "não", peça para informar o número correto
+- Se o cidadão disser "sem número", salve numero como "S/N" e prossiga
+- NÃO salve o número nos dados_extraidos até o cidadão confirmar com "1" ou "sim"
 
 📲 COMANDOS:
 - *consultar PROTOCOLO* - Ver status
@@ -1108,8 +1134,24 @@ Digite o número da opção."
       // Atualizar conversa com novos dados
       let novoEstado = 'coletando_dados';
       
+      // Verificar se todos os dados obrigatórios (exceto número que é opcional) foram coletados
+      const todosDadosColetados = dadosAtualizados.nome && 
+                                   dadosAtualizados.email && 
+                                   dadosAtualizados.rua && 
+                                   dadosAtualizados.bairro && 
+                                   dadosAtualizados.categoria && 
+                                   dadosAtualizados.descricao;
+      
+      // CORREÇÃO CRÍTICA: Se todos os dados foram coletados e não estamos na etapa de mídia, forçar transição
+      if (todosDadosColetados && conversaData.estado !== 'aguardando_midia' && conversaData.estado !== 'confirmando') {
+        console.log('Todos os dados coletados! Forçando transição para etapa de mídia');
+        novoEstado = 'aguardando_midia';
+        
+        // Substituir resposta da IA pela pergunta de mídia
+        aiResult.resposta = `✅ Ótimo, já tenho todas as informações!\n\n📷 Agora você pode enviar *fotos* ou *vídeos* do problema.\n\nIsso ajuda muito a equipe a entender a situação!\n\n*Envie as mídias agora* ou digite 1️⃣ para *continuar sem mídia*.`;
+      }
       // CORREÇÃO: Verificar se a IA indicou que é hora de pedir mídia
-      if (aiResult.nova_etapa === 'midia' && conversaData.estado !== 'aguardando_midia') {
+      else if (aiResult.nova_etapa === 'midia' && conversaData.estado !== 'aguardando_midia') {
         console.log('IA indicou etapa de mídia, mudando estado para aguardando_midia');
         novoEstado = 'aguardando_midia';
         
