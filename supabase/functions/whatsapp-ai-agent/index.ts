@@ -941,9 +941,9 @@ Digite o número da opção."
 
 📍 CONFIRMAÇÃO DE NÚMERO DA CASA (OBRIGATÓRIO - APÓS CONFIRMAR RUA):
 Depois que o cidadão confirmar a RUA, SEMPRE pergunte o número da casa:
-"Qual é o *número* da casa ou local? 🏠
+"Qual é o *número* da casa ou próximo? 🏠
 
-Se não souber o número exato, digite *sem número*."
+Se não souber o número exato, digite 1️⃣ para continuar."
 
 Após o cidadão informar o número, pergunte para confirmar:
 "O número é *[número informado]*?
