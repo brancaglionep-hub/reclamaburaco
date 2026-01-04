@@ -147,21 +147,6 @@ function isConfirmacao(textoNormalizado: string) {
   ].includes(textoNormalizado) || textoNormalizado.startsWith('confirm');
 }
 
-function isRefazer(textoNormalizado: string) {
-  if (!textoNormalizado) return false;
-  return [
-    '2',            // Número 2 para refazer
-    'refazer',
-    'recomecar',
-    'comecar de novo',
-    'outra',
-    'nao',
-    'n',
-    'errado',
-    'corrigir',
-  ].includes(textoNormalizado) || textoNormalizado.startsWith('refaz');
-}
-
 function formatQtd(qtd: number, singular: string, plural: string) {
   if (qtd === 1) return `1 ${singular}`;
   return `${qtd} ${plural}`;
@@ -197,8 +182,7 @@ function buildResumoConfirmacao(args: {
     `*Tipo do problema:* ${tipoLabel || '-'}\n` +
     `*Descrição:* ${dados.descricao || '-'}\n` +
     `*Mídia:* ${midiaLinha}\n\n` +
-    `1️⃣ *Enviar reclamação*\n` +
-    `2️⃣ *Refazer reclamação*\n\n` +
+    `Se estiver tudo certo, digite 1️⃣ para enviar.\n` +
     `_${prefeituraNome}_`
   );
 }
@@ -738,36 +722,6 @@ Deno.serve(async (req) => {
 
       // Confirmação: evitar mandar a revisão 2x. Quando o cidadão digitar confirmar/sim, cria a reclamação direto.
       if (conversaData.estado === 'confirmando') {
-        // Verificar se quer refazer a reclamação
-        if (isRefazer(textoNormalizado)) {
-          // Manter apenas nome, email e telefone - resetar o resto
-          const dadosParaManter = {
-            nome: conversaData.dados_coletados.nome,
-            email: conversaData.dados_coletados.email,
-            telefone: conversaData.dados_coletados.telefone || telefoneLimpo,
-          };
-
-          await supabase
-            .from('whatsapp_conversas')
-            .update({
-              estado: 'coletando_dados',
-              dados_coletados: dadosParaManter,
-              midias_coletadas: { fotos: [], videos: [] },
-              localizacao: null,
-              ultima_mensagem_at: new Date().toISOString(),
-            })
-            .eq('id', conversaData.id);
-
-          return new Response(
-            JSON.stringify({
-              resposta: `🔄 Vamos refazer sua reclamação!\n\nMe diga o *bairro* e a *rua* onde está o problema.`,
-              acao: 'continuar',
-              protocolo: null,
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
         if (!isConfirmacao(textoNormalizado)) {
           return new Response(
             JSON.stringify({
