@@ -72,7 +72,7 @@ const Home = () => {
   useEffect(() => {
     const fetchPrefeituras = async () => {
       const { data, error } = await supabase
-        .from("prefeituras")
+        .from("prefeituras_publico")
         .select("id, nome, cidade, slug, logo_url")
         .eq("ativo", true)
         .order("cidade");

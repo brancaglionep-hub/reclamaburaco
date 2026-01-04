@@ -153,7 +153,7 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId, config
   useEffect(() => {
     const fetchPrefeitura = async () => {
       const { data } = await supabase
-        .from("prefeituras")
+        .from("prefeituras_publico")
         .select("cidade")
         .eq("id", prefeituraId)
         .single();
