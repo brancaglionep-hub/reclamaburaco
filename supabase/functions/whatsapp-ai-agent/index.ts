@@ -814,93 +814,106 @@ Deno.serve(async (req) => {
         );
       }
 
+    // Buscar últimas mensagens da conversa para contexto
+    const { data: historicoMensagens } = await supabase
+      .from('whatsapp_mensagens')
+      .select('conteudo, direcao, created_at')
+      .eq('conversa_id', conversaData.id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    // Formatar histórico para contexto (ordem cronológica)
+    const historicoFormatado = (historicoMensagens || [])
+      .reverse()
+      .map(m => `${m.direcao === 'entrada' ? 'CIDADÃO' : 'ASSISTENTE'}: ${m.conteudo}`)
+      .join('\n');
+
+    // Identificar claramente o que já foi coletado
+    const dadosJaColetados: string[] = [];
+    if (dadosAtuais.nome) dadosJaColetados.push(`✅ Nome: ${dadosAtuais.nome}`);
+    if (dadosAtuais.email) dadosJaColetados.push(`✅ Email: ${dadosAtuais.email}`);
+    if (dadosAtuais.telefone) dadosJaColetados.push(`✅ Telefone: ${dadosAtuais.telefone}`);
+    if (dadosAtuais.bairro) dadosJaColetados.push(`✅ Bairro: ${dadosAtuais.bairro}`);
+    if (dadosAtuais.rua) dadosJaColetados.push(`✅ Rua: ${dadosAtuais.rua}`);
+    if (dadosAtuais.numero) dadosJaColetados.push(`✅ Número: ${dadosAtuais.numero}`);
+    if (dadosAtuais.referencia) dadosJaColetados.push(`✅ Referência: ${dadosAtuais.referencia}`);
+    if (dadosAtuais.categoria) dadosJaColetados.push(`✅ Categoria: ${dadosAtuais.categoria}`);
+    if (dadosAtuais.descricao) dadosJaColetados.push(`✅ Descrição: ${dadosAtuais.descricao}`);
+
+    // Identificar o que ainda falta
+    const dadosFaltando: string[] = [];
+    if (!dadosAtuais.nome) dadosFaltando.push('❌ Nome');
+    if (!dadosAtuais.email) dadosFaltando.push('❌ Email');
+    if (!dadosAtuais.bairro) dadosFaltando.push('❌ Bairro');
+    if (!dadosAtuais.rua) dadosFaltando.push('❌ Rua');
+    if (!dadosAtuais.categoria) dadosFaltando.push('❌ Categoria');
+    if (!dadosAtuais.descricao) dadosFaltando.push('❌ Descrição');
+
     const systemPrompt = `Você é a assistente virtual da ${prefeitura.nome} (${prefeitura.cidade}/${prefeitura.estado}).
 Você ajuda os cidadãos a registrar reclamações sobre problemas na cidade.
 
+⚠️ REGRA CRÍTICA - NUNCA PERGUNTE NOVAMENTE O QUE JÁ FOI COLETADO!
+Se um dado já está na lista "DADOS JÁ COLETADOS", NÃO PERGUNTE DE NOVO. Use o dado salvo.
+
 ${usuarioRecorrente ? `
-🎉 USUÁRIO RECORRENTE DETECTADO!
-- Nome: ${cidadaoExistente?.nome}
-- Já fez ${totalReclamacoes} reclamação(ões) anteriormente
-- Trate-o de forma mais pessoal, reconhecendo que ele já é conhecido
-- Pode pular dados já conhecidos como nome/email/bairro se ainda válidos
-- Ofereça consultar suas reclamações anteriores quando apropriado
+🎉 USUÁRIO RECORRENTE - ${cidadaoExistente?.nome}
+- Já fez ${totalReclamacoes} reclamação(ões)
+- Use os dados já conhecidos, não pergunte nome/email novamente
 ` : `
-👋 NOVO USUÁRIO
-- Seja acolhedor mas DIRETO na primeira interação
-- NÃO liste etapas ou passos do processo
-- Pergunte apenas o que precisa no momento
+👋 NOVO USUÁRIO - Seja direto
 `}
 
-📝 FLUXO DE ETAPAS (igual ao site):
-1. DADOS PESSOAIS: Nome completo, E-mail, Telefone (opcional)
-2. LOCALIZAÇÃO: Bairro, Rua, Número (opcional), Ponto de referência (opcional)
-3. TIPO DO PROBLEMA: Escolher categoria
-4. DESCRIÇÃO: Detalhes do problema
-5. MÍDIA: Fotos/vídeos (opcional mas incentivado)
-6. CONFIRMAÇÃO: Revisar e confirmar envio
+📊 DADOS JÁ COLETADOS (NÃO PERGUNTE DE NOVO):
+${dadosJaColetados.length > 0 ? dadosJaColetados.join('\n') : '(Nenhum dado coletado ainda)'}
 
-🔄 ESTADO ATUAL DA CONVERSA:
+📋 DADOS QUE AINDA FALTAM:
+${dadosFaltando.length > 0 ? dadosFaltando.join('\n') : '(Todos os dados obrigatórios coletados!)'}
+
+📱 HISTÓRICO DA CONVERSA (últimas mensagens):
+${historicoFormatado || '(Início da conversa)'}
+
+🔄 ESTADO ATUAL:
 - Etapa: ${etapaAtual}
 - Estado: ${conversaData.estado}
-- Dados coletados: ${JSON.stringify(dadosAtuais)}
 - Fotos: ${midiasAtualizadas.fotos.length} | Vídeos: ${midiasAtualizadas.videos.length}
 - Localização GPS: ${localizacaoAtualizada ? 'Sim' : 'Não'}
 
 📍 BAIRROS DA CIDADE:
 ${bairros.map(b => `- ${b.nome} (id: ${b.id})`).join('\n') || 'Nenhum cadastrado - aceitar qualquer nome'}
 
-🏷️ CATEGORIAS DE PROBLEMAS DESTA PREFEITURA (use números para o usuário escolher):
+🏷️ CATEGORIAS DE PROBLEMAS:
 ${categorias.length > 0 
   ? categorias.map((c, i) => `${i + 1}️⃣ ${c.nome} (id: ${c.id})`).join('\n')
   : TIPOS_PROBLEMA.map(t => `${t.numero}️⃣ ${t.label}`).join('\n')
 }
 
-IMPORTANTE: Use SEMPRE as categorias acima que são específicas desta prefeitura.
-Quando pedir o tipo de problema, liste as opções numeradas:
-"Qual o tipo do problema?
-
-${categorias.length > 0 
-  ? categorias.map((c, i) => `${i + 1}️⃣ ${c.nome}`).join('\n')
-  : TIPOS_PROBLEMA.map(t => `${t.numero}️⃣ ${t.label}`).join('\n')
-}
-
-Digite o número da opção."
-
-Se o usuário responder com um número (1, 2, 3...), interprete como a opção correspondente da lista acima.
-Cada prefeitura pode ter categorias diferentes - use SOMENTE as listadas acima.
-
 🎯 REGRAS IMPORTANTES:
-1. Seja educado, breve e objetivo - mensagens curtas funcionam melhor no WhatsApp
-2. Use emojis para tornar a conversa amigável 😊
-3. Siga o fluxo de etapas - não pule etapas sem ter os dados
-4. Para usuários recorrentes, seja mais direto e pessoal
-5. Extraia informações do texto naturalmente - não precisa perguntar tudo separado
-6. Se o usuário mandar tudo de uma vez, extraia todos os dados
-7. Quando pedir categoria, mostre as opções de forma clara
-8. Valide emails (precisa ter @ e .)
-9. Aceite variações de bairros (associe ao mais próximo da lista)
-10. Incentive envio de fotos mas não exija
-11. Antes de criar, SEMPRE mostre resumo e peça confirmação
-12. Use markdown do WhatsApp: *negrito* _itálico_
+1. ⚠️ NUNCA PERGUNTE DADOS QUE JÁ ESTÃO NA LISTA "DADOS JÁ COLETADOS"
+2. Seja breve e objetivo - mensagens curtas no WhatsApp
+3. Use emojis 😊
+4. Pergunte APENAS o próximo dado que falta
+5. Se o cidadão mandar tudo de uma vez, extraia todos os dados
+6. Antes de criar, mostre resumo e peça confirmação
+7. Use markdown do WhatsApp: *negrito* _itálico_
 
-📲 COMANDOS DISPONÍVEIS (informe quando apropriado):
-- *consultar PROTOCOLO* - Ver status de uma reclamação
-- *minhas reclamações* - Listar reclamações anteriores
-- *cancelar* - Cancelar reclamação atual
+📲 COMANDOS:
+- *consultar PROTOCOLO* - Ver status
+- *minhas reclamações* - Listar reclamações
+- *cancelar* - Cancelar atual
 
 📋 FORMATO DE RESPOSTA (JSON):
 {
   "resposta": "mensagem para o cidadão",
   "dados_extraidos": {
-    "nome": "se identificou",
-    "email": "se identificou",
-    "telefone": "se identificou",
-    "rua": "se identificou",
-    "numero": "se identificou",
+    "nome": "se identificou novo dado",
+    "email": "se identificou novo dado",
+    "telefone": "se identificou novo dado",
+    "rua": "se identificou novo dado",
+    "numero": "se identificou novo dado",
     "bairro": "nome do bairro",
     "bairro_id": "id do bairro se corresponde à lista",
-    "categoria": "tipo do problema (buraco/danificada/alagada/desnivel/dificil/outro)",
-    "categoria_id": "id da categoria do sistema",
+    "categoria": "tipo do problema",
+    "categoria_id": "id da categoria",
     "descricao": "descrição do problema",
     "referencia": "ponto de referência"
   },
@@ -909,7 +922,10 @@ Cada prefeitura pode ter categorias diferentes - use SOMENTE as listadas acima.
   "criar_reclamacao": true/false
 }
 
-⚠️ IMPORTANTE: Responda APENAS com o JSON válido, sem texto adicional.`;
+⚠️ IMPORTANTE: 
+- Responda APENAS com JSON válido
+- NÃO inclua dados que já existem em dados_extraidos (só novos dados)
+- Se o dado já foi coletado, NÃO pergunte novamente!`;
 
     const userMessage = mensagem.texto || 
       (midiasAtualizadas.fotos.length > 0 ? '[Cidadão enviou foto(s)]' : '') +
