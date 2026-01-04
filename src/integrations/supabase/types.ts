@@ -117,6 +117,13 @@ export type Database = {
             referencedRelation: "prefeituras"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "alertas_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras_publico"
+            referencedColumns: ["id"]
+          },
         ]
       }
       avaliacoes: {
@@ -159,6 +166,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "avaliacoes_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras_publico"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "avaliacoes_reclamacao_id_fkey"
             columns: ["reclamacao_id"]
             isOneToOne: false
@@ -195,6 +209,13 @@ export type Database = {
             columns: ["prefeitura_id"]
             isOneToOne: false
             referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bairros_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras_publico"
             referencedColumns: ["id"]
           },
         ]
@@ -239,6 +260,13 @@ export type Database = {
             columns: ["prefeitura_id"]
             isOneToOne: false
             referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "categorias_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras_publico"
             referencedColumns: ["id"]
           },
         ]
@@ -293,6 +321,13 @@ export type Database = {
             columns: ["prefeitura_id"]
             isOneToOne: false
             referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cidadaos_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras_publico"
             referencedColumns: ["id"]
           },
         ]
@@ -455,6 +490,13 @@ export type Database = {
             referencedRelation: "prefeituras"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "prefeitura_configuracoes_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: true
+            referencedRelation: "prefeituras_publico"
+            referencedColumns: ["id"]
+          },
         ]
       }
       prefeituras: {
@@ -565,6 +607,13 @@ export type Database = {
             referencedRelation: "prefeituras"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "profiles_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras_publico"
+            referencedColumns: ["id"]
+          },
         ]
       }
       reclamacoes: {
@@ -653,6 +702,13 @@ export type Database = {
             referencedRelation: "prefeituras"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "reclamacoes_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras_publico"
+            referencedColumns: ["id"]
+          },
         ]
       }
       upload_queue: {
@@ -710,6 +766,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "upload_queue_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras_publico"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "upload_queue_reclamacao_id_fkey"
             columns: ["reclamacao_id"]
             isOneToOne: false
@@ -748,6 +811,13 @@ export type Database = {
             referencedRelation: "prefeituras"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "user_roles_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras_publico"
+            referencedColumns: ["id"]
+          },
         ]
       }
       visitas: {
@@ -775,6 +845,13 @@ export type Database = {
             columns: ["prefeitura_id"]
             isOneToOne: false
             referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitas_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras_publico"
             referencedColumns: ["id"]
           },
         ]
@@ -816,6 +893,13 @@ export type Database = {
             columns: ["prefeitura_id"]
             isOneToOne: false
             referencedRelation: "prefeituras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_logs_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras_publico"
             referencedColumns: ["id"]
           },
           {
@@ -885,6 +969,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "whatsapp_conversas_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras_publico"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "whatsapp_conversas_reclamacao_id_fkey"
             columns: ["reclamacao_id"]
             isOneToOne: false
@@ -948,6 +1039,13 @@ export type Database = {
             referencedRelation: "prefeituras"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_mensagens_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras_publico"
+            referencedColumns: ["id"]
+          },
         ]
       }
       whatsapp_templates: {
@@ -992,11 +1090,77 @@ export type Database = {
             referencedRelation: "prefeituras"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_templates_prefeitura_id_fkey"
+            columns: ["prefeitura_id"]
+            isOneToOne: false
+            referencedRelation: "prefeituras_publico"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
     Views: {
-      [_ in never]: never
+      prefeituras_publico: {
+        Row: {
+          ativo: boolean | null
+          cidade: string | null
+          cor_primaria: string | null
+          cor_secundaria: string | null
+          created_at: string | null
+          email_contato: string | null
+          estado: string | null
+          evolution_connected: boolean | null
+          id: string | null
+          imagem_capa_url: string | null
+          logo_url: string | null
+          nome: string | null
+          plano: Database["public"]["Enums"]["plano_prefeitura"] | null
+          slug: string | null
+          telefone_contato: string | null
+          texto_institucional: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          cidade?: string | null
+          cor_primaria?: string | null
+          cor_secundaria?: string | null
+          created_at?: string | null
+          email_contato?: string | null
+          estado?: string | null
+          evolution_connected?: boolean | null
+          id?: string | null
+          imagem_capa_url?: string | null
+          logo_url?: string | null
+          nome?: string | null
+          plano?: Database["public"]["Enums"]["plano_prefeitura"] | null
+          slug?: string | null
+          telefone_contato?: string | null
+          texto_institucional?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          cidade?: string | null
+          cor_primaria?: string | null
+          cor_secundaria?: string | null
+          created_at?: string | null
+          email_contato?: string | null
+          estado?: string | null
+          evolution_connected?: boolean | null
+          id?: string | null
+          imagem_capa_url?: string | null
+          logo_url?: string | null
+          nome?: string | null
+          plano?: Database["public"]["Enums"]["plano_prefeitura"] | null
+          slug?: string | null
+          telefone_contato?: string | null
+          texto_institucional?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       buscar_avaliacao_por_token: {
