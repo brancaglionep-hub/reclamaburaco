@@ -61,6 +61,7 @@ const EvolutionQrConnect = ({
   const [connectionState, setConnectionState] = useState<ConnectionState | null>(null);
   const [awaitingScan, setAwaitingScan] = useState(false);
   const [justConnected, setJustConnected] = useState(false);
+  const [countdown, setCountdown] = useState(5);
 
   const instanceName = `prefeitura-${prefeituraSlug}`;
   
@@ -147,23 +148,43 @@ const EvolutionQrConnect = ({
 
   // Auto-check connection every 5 seconds when QR code is displayed (more frequent for better UX)
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (qrCode?.base64 && !evolutionConnected && !justConnected) {
       setAwaitingScan(true);
+      setCountdown(3); // Initial check after 3 seconds
+      
+      // Countdown timer
+      countdownRef.current = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            return 5; // Reset to 5 seconds after each check
+          }
+          return prev - 1;
+        });
+      }, 1000);
       
       // Check immediately after 3 seconds
       const initialCheck = setTimeout(() => {
         checkConnectionSilent();
+        setCountdown(5);
       }, 3000);
       
       // Then check every 5 seconds
       pollingRef.current = setInterval(async () => {
         const connected = await checkConnectionSilent();
-        if (connected && pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
+        if (connected) {
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current);
+            pollingRef.current = null;
+          }
+          if (countdownRef.current) {
+            clearInterval(countdownRef.current);
+            countdownRef.current = null;
+          }
         }
+        setCountdown(5);
       }, 5000);
 
       return () => {
@@ -171,6 +192,10 @@ const EvolutionQrConnect = ({
         if (pollingRef.current) {
           clearInterval(pollingRef.current);
           pollingRef.current = null;
+        }
+        if (countdownRef.current) {
+          clearInterval(countdownRef.current);
+          countdownRef.current = null;
         }
       };
     }
@@ -517,9 +542,17 @@ const EvolutionQrConnect = ({
                 <p className="text-xs text-blue-600 dark:text-blue-400 text-center">
                   Abra o WhatsApp no celular → Menu (⋮) → Dispositivos conectados → Conectar dispositivo
                 </p>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <RefreshCw className="w-3 h-3 animate-spin" />
-                  Verificando conexão automaticamente...
+                <div className="flex items-center justify-center gap-3 p-2 bg-blue-100 dark:bg-blue-900/50 rounded-md">
+                  <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+                  <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                    Próxima verificação em
+                  </span>
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-lg">
+                    {countdown}
+                  </span>
+                  <span className="text-sm text-blue-600 dark:text-blue-400">
+                    segundo{countdown !== 1 ? 's' : ''}
+                  </span>
                 </div>
               </div>
             )}
