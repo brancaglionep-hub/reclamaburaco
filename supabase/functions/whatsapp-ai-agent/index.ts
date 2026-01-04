@@ -644,7 +644,7 @@ Deno.serve(async (req) => {
           await supabase
             .from('whatsapp_conversas')
             .update({
-              estado: conversaData.estado,
+              estado: 'aguardando_midia',
               midias_coletadas: midiasAtualizadas,
               localizacao: localizacaoAtualizada,
               ultima_mensagem_at: new Date().toISOString(),
@@ -690,6 +690,28 @@ Deno.serve(async (req) => {
                 videos: midiasAtualizadas.videos.length,
                 prefeituraNome: prefeitura.nome,
               }),
+              acao: 'continuar',
+              protocolo: null,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Se ainda não pedimos mídia (estado não é aguardando_midia), perguntar agora
+        if (conversaData.estado !== 'aguardando_midia') {
+          await supabase
+            .from('whatsapp_conversas')
+            .update({
+              estado: 'aguardando_midia',
+              midias_coletadas: midiasAtualizadas,
+              localizacao: localizacaoAtualizada,
+              ultima_mensagem_at: new Date().toISOString(),
+            })
+            .eq('id', conversaData.id);
+
+          return new Response(
+            JSON.stringify({
+              resposta: `📷 Agora você pode enviar *fotos* ou *vídeos* do problema.\n\nIsso ajuda muito a equipe a entender a situação!\n\n*Envie as mídias agora* ou digite 1️⃣ para *continuar sem mídia*.`,
               acao: 'continuar',
               protocolo: null,
             }),
