@@ -59,6 +59,8 @@ const EvolutionQrConnect = ({
   const [webhookConfigured, setWebhookConfigured] = useState(false);
   const [qrCode, setQrCode] = useState<QrCodeData | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState | null>(null);
+  const [awaitingScan, setAwaitingScan] = useState(false);
+  const [justConnected, setJustConnected] = useState(false);
 
   const instanceName = `prefeitura-${prefeituraSlug}`;
   
@@ -122,9 +124,17 @@ const EvolutionQrConnect = ({
 
       if (isConnected) {
         setQrCode(null);
+        setAwaitingScan(false);
+        setJustConnected(true);
         setConnectionState(data.instance || data);
-        toast.success("WhatsApp conectado com sucesso!");
-        onConfigUpdate();
+        toast.success("🎉 WhatsApp CONECTADO com sucesso!");
+        
+        // Atualizar dados e recarregar página após 2 segundos
+        setTimeout(() => {
+          onConfigUpdate();
+          window.location.reload();
+        }, 2000);
+        
         return true;
       }
       
@@ -135,27 +145,36 @@ const EvolutionQrConnect = ({
     }
   }, [isGlobalConfigured, instanceName, onConfigUpdate]);
 
-  // Auto-check connection every 30 seconds when QR code is displayed
+  // Auto-check connection every 5 seconds when QR code is displayed (more frequent for better UX)
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (qrCode?.base64 && !evolutionConnected) {
+    if (qrCode?.base64 && !evolutionConnected && !justConnected) {
+      setAwaitingScan(true);
+      
+      // Check immediately after 3 seconds
+      const initialCheck = setTimeout(() => {
+        checkConnectionSilent();
+      }, 3000);
+      
+      // Then check every 5 seconds
       pollingRef.current = setInterval(async () => {
         const connected = await checkConnectionSilent();
         if (connected && pollingRef.current) {
           clearInterval(pollingRef.current);
           pollingRef.current = null;
         }
-      }, 30000);
+      }, 5000);
 
       return () => {
+        clearTimeout(initialCheck);
         if (pollingRef.current) {
           clearInterval(pollingRef.current);
           pollingRef.current = null;
         }
       };
     }
-  }, [qrCode?.base64, evolutionConnected, checkConnectionSilent]);
+  }, [qrCode?.base64, evolutionConnected, justConnected, checkConnectionSilent]);
 
   const checkConnection = async () => {
     if (!isGlobalConfigured) {
@@ -253,6 +272,7 @@ const EvolutionQrConnect = ({
           if (createData.qrcode?.base64) {
             setQrCode({ base64: createData.qrcode.base64 });
             setWebhookConfigured(true);
+            setAwaitingScan(true);
             toast.success("Instância criada! Escaneie o QR Code.");
             setLoadingQr(false);
             return;
@@ -270,6 +290,7 @@ const EvolutionQrConnect = ({
       
       if (data.base64 || data.qrcode?.base64) {
         setQrCode({ base64: data.base64 || data.qrcode?.base64 });
+        setAwaitingScan(true);
         toast.success("QR Code gerado! Escaneie com seu WhatsApp.");
       } else if (data.instance?.state === "open") {
         toast.success("WhatsApp já está conectado!");
@@ -445,27 +466,68 @@ const EvolutionQrConnect = ({
           )}
         </div>
 
+        {/* Just Connected Success Message */}
+        {justConnected && (
+          <div className="flex flex-col items-center gap-4 p-8 bg-green-50 dark:bg-green-950/30 border-2 border-green-500 rounded-lg animate-pulse">
+            <CheckCircle className="w-16 h-16 text-green-600" />
+            <div className="text-center">
+              <h3 className="text-2xl font-bold text-green-700 dark:text-green-400">
+                CONECTADO!
+              </h3>
+              <p className="text-green-600 dark:text-green-500 mt-2">
+                WhatsApp conectado com sucesso!
+              </p>
+              <div className="flex items-center justify-center gap-2 mt-4 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Atualizando página...
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* QR Code Display */}
-        {qrCode?.base64 && (
-          <div className="flex flex-col items-center gap-4 p-6 bg-white rounded-lg border">
+        {qrCode?.base64 && !justConnected && (
+          <div className="flex flex-col items-center gap-4 p-6 bg-white dark:bg-gray-900 rounded-lg border">
             <p className="text-sm text-muted-foreground text-center">
               Escaneie o QR Code abaixo com o WhatsApp do celular que será usado para receber reclamações
             </p>
-            <div className="p-4 bg-white rounded-lg shadow-sm">
+            <div className="p-4 bg-white rounded-lg shadow-sm relative">
               <img 
                 src={qrCode.base64.startsWith("data:") ? qrCode.base64 : `data:image/png;base64,${qrCode.base64}`} 
                 alt="QR Code WhatsApp" 
                 className="w-64 h-64"
               />
             </div>
-            <p className="text-xs text-muted-foreground">
-              O QR Code será atualizado automaticamente quando necessário
-            </p>
+            
+            {/* Awaiting Scan Indicator */}
+            {awaitingScan && (
+              <div className="flex flex-col items-center gap-3 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg w-full">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                    </span>
+                  </div>
+                  <span className="font-medium text-blue-700 dark:text-blue-300">
+                    Aguardando leitura do QR Code...
+                  </span>
+                </div>
+                <p className="text-xs text-blue-600 dark:text-blue-400 text-center">
+                  Abra o WhatsApp no celular → Menu (⋮) → Dispositivos conectados → Conectar dispositivo
+                </p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  Verificando conexão automaticamente...
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* Connection State */}
-        {connectionState && (
+        {connectionState && !justConnected && (
           <div className="p-4 bg-muted/50 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
               {connectionState.state === "open" ? (
