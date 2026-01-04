@@ -354,6 +354,7 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
           webhook_by_events: true,
           webhook_base64: false,
           events: ["MESSAGES_UPSERT"],
+          ignore_groups: true,
         }
       );
 

@@ -164,6 +164,16 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Ignorar mensagens de grupos (remoteJid contém @g.us para grupos)
+    const remoteJid = body.data?.key?.remoteJid || '';
+    if (remoteJid.includes('@g.us')) {
+      console.log('Mensagem de grupo ignorada:', remoteJid);
+      return new Response(
+        JSON.stringify({ success: true, ignored: true, reason: 'Group message ignored' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Deduplicar mensagens (Evolution pode reenviar o mesmo evento)
     const incomingMessageId = body.data?.key?.id;
     if (incomingMessageId) {
