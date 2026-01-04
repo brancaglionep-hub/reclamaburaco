@@ -67,7 +67,13 @@ Deno.serve(async (req) => {
 
     console.log('Deleting user:', user_id)
 
-    // Delete user roles first
+    // Set criado_por to null in alertas table to avoid FK constraint
+    await supabaseAdmin
+      .from('alertas')
+      .update({ criado_por: null })
+      .eq('criado_por', user_id)
+
+    // Delete user roles
     await supabaseAdmin
       .from('user_roles')
       .delete()
