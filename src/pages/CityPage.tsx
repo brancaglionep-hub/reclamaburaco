@@ -41,7 +41,7 @@ const CityPage = () => {
   useEffect(() => {
     const fetchPrefeitura = async () => {
       const { data, error } = await supabase
-        .from("prefeituras")
+        .from("prefeituras_publico")
         .select("*")
         .eq("slug", slug)
         .eq("ativo", true)
