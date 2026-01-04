@@ -164,18 +164,24 @@ const AdminPrefeituras = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir esta prefeitura?")) return;
+    if (!confirm("Tem certeza que deseja excluir esta prefeitura? Todos os dados relacionados serão excluídos permanentemente.")) return;
 
-    const { error } = await supabase
-      .from("prefeituras")
-      .delete()
-      .eq("id", id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await supabase.functions.invoke('delete-prefeitura', {
+        body: { prefeitura_id: id },
+      });
 
-    if (error) {
-      toast({ title: "Erro ao excluir", variant: "destructive" });
-    } else {
+      if (response.error) {
+        throw new Error(response.error.message || 'Erro ao excluir');
+      }
+
       toast({ title: "Prefeitura excluída!" });
       fetchPrefeituras();
+    } catch (error) {
+      console.error('Erro ao excluir:', error);
+      toast({ title: "Erro ao excluir prefeitura", variant: "destructive" });
     }
   };
 
