@@ -51,19 +51,15 @@ interface ConnectionState {
   statusReason?: number;
 }
 
-interface EvolutionGlobalConfig {
-  url: string | null;
-  api_key: string | null;
-}
-
 interface WebhookInfo {
   enabled: boolean;
   url: string | null;
   events: string[];
 }
 
-const WEBHOOK_URL = "https://sfsjtljhrelctpxpzody.supabase.co/functions/v1/receive-evolution-webhook";
-const PROXY_URL = "https://sfsjtljhrelctpxpzody.supabase.co/functions/v1/evolution-api-proxy";
+const FUNCTIONS_BASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const WEBHOOK_URL = `${FUNCTIONS_BASE_URL}/functions/v1/receive-evolution-webhook`;
+const PROXY_URL = `${FUNCTIONS_BASE_URL}/functions/v1/evolution-api-proxy`;
 
 const EvolutionQrConnect = ({ 
   prefeituraId, 
@@ -73,7 +69,11 @@ const EvolutionQrConnect = ({
   onConfigUpdate 
 }: EvolutionQrConnectProps) => {
   const [loading, setLoading] = useState(true);
-  const [globalConfig, setGlobalConfig] = useState<EvolutionGlobalConfig | null>(null);
+  // ⚠️ Importante: o painel não tem permissão para ler configuracoes_sistema (RLS),
+  // então validamos a configuração chamando o proxy (que lê no backend com segurança).
+  const [apiConfigured, setApiConfigured] = useState<boolean | null>(null);
+  const [apiConfigError, setApiConfigError] = useState<string | null>(null);
+
   const [checkingConnection, setCheckingConnection] = useState(false);
   const [loadingQr, setLoadingQr] = useState(false);
   const [configuringWebhook, setConfiguringWebhook] = useState(false);
@@ -88,39 +88,70 @@ const EvolutionQrConnect = ({
   const [totalMessages, setTotalMessages] = useState<number>(0);
 
   const instanceName = `prefeitura-${prefeituraSlug}`;
-  
-  useEffect(() => {
-    fetchGlobalConfig();
-    if (evolutionConnected) {
-      fetchWebhookStatus();
-      fetchMessageCount();
-    }
-  }, [evolutionConnected]);
 
-  const fetchGlobalConfig = async () => {
+  const callEvolutionProxy = async (endpoint: string, method = "GET", body?: object) => {
+    const response = await fetch(PROXY_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prefeituraId,
+        endpoint,
+        method,
+        body,
+        useGlobalConfig: true,
+        instanceName,
+      }),
+    });
+    return response;
+  };
+
+  const checkApiConfigured = async () => {
+    setLoading(true);
+    setApiConfigError(null);
+
     try {
-      const { data, error } = await supabase
-        .from("configuracoes_sistema")
-        .select("valor")
-        .eq("chave", "evolution_api")
-        .single();
-
-      if (error) throw error;
-
-      if (data?.valor) {
-        const valor = data.valor as Record<string, unknown>;
-        const config: EvolutionGlobalConfig = {
-          url: typeof valor.url === "string" ? valor.url : null,
-          api_key: typeof valor.api_key === "string" ? valor.api_key : null,
-        };
-        setGlobalConfig(config);
+      const response = await callEvolutionProxy(`/instance/fetchInstances`);
+      if (response.ok) {
+        setApiConfigured(true);
+        return;
       }
-    } catch (error) {
-      console.error("Erro ao carregar configuração global:", error);
+
+      const data = await response.json().catch(() => ({} as any));
+      const msg = typeof data?.error === "string" ? data.error : "";
+      const lower = msg.toLowerCase();
+
+      // Se o proxy disser que não está configurada, aí sim mostramos bloqueio.
+      if (lower.includes("não configurada") || lower.includes("não encontrada")) {
+        setApiConfigured(false);
+        return;
+      }
+
+      // Caso contrário, provavelmente está configurada, mas houve falha momentânea/credencial inválida.
+      setApiConfigured(true);
+      setApiConfigError(msg || `Falha ao validar a Evolution API (status ${response.status}).`);
+    } catch (error: unknown) {
+      // Não bloqueia a tela por falha de validação: mantém como configurada e mostra aviso.
+      setApiConfigured(true);
+      setApiConfigError("Não foi possível validar a Evolution API agora.");
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    checkApiConfigured();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefeituraId]);
+
+  useEffect(() => {
+    if (evolutionConnected) {
+      fetchWebhookStatus();
+      fetchMessageCount();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evolutionConnected]);
 
   const fetchWebhookStatus = async () => {
     setCheckingWebhook(true);
@@ -147,32 +178,14 @@ const EvolutionQrConnect = ({
         .from("whatsapp_mensagens")
         .select("*", { count: "exact", head: true })
         .eq("prefeitura_id", prefeituraId);
-      
+
       setTotalMessages(count || 0);
     } catch (error) {
       console.error("Erro ao buscar contagem de mensagens:", error);
     }
   };
 
-  const isGlobalConfigured = globalConfig?.url && globalConfig?.api_key;
-
-  const callEvolutionProxy = async (endpoint: string, method = "GET", body?: object) => {
-    const response = await fetch(PROXY_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        prefeituraId,
-        endpoint,
-        method,
-        body,
-        useGlobalConfig: true,
-        instanceName,
-      }),
-    });
-    return response;
-  };
+  const isGlobalConfigured = apiConfigured === true;
 
   const checkConnectionSilent = useCallback(async () => {
     if (!isGlobalConfigured) return false;
@@ -459,7 +472,8 @@ const EvolutionQrConnect = ({
     );
   }
 
-  if (!isGlobalConfigured) {
+  // Mostra "não configurada" APENAS quando o proxy confirmou isso.
+  if (apiConfigured === false) {
     return (
       <Card>
         <CardHeader>
