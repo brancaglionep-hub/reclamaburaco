@@ -1218,6 +1218,16 @@ export type Database = {
           protocolo: string
         }[]
       }
+      get_prefeitura_config_publica: {
+        Args: { _prefeitura_id: string }
+        Returns: {
+          exigir_foto_padrao: boolean
+          lgpd_texto_consentimento: string
+          limite_imagens: number
+          permitir_anexo: boolean
+          permitir_video: boolean
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
