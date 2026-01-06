@@ -81,6 +81,14 @@ const PainelReclamacaoDetalhe = () => {
         setReclamacao(data as any);
         setNewStatus(data.status);
         setResposta(data.resposta_prefeitura || "");
+        
+        // Marcar como visualizada se ainda não foi
+        if (!data.visualizada) {
+          await supabase
+            .from("reclamacoes")
+            .update({ visualizada: true })
+            .eq("id", id);
+        }
       }
 
       // Fetch historico
