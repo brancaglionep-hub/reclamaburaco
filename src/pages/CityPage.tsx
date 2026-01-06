@@ -35,8 +35,8 @@ const CityPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [showConsulta, setShowConsulta] = useState(false);
 
-  // Carrega configurações da prefeitura
-  const { config: prefeituraConfig } = usePrefeituraConfig(prefeitura?.id);
+  // Carrega configurações da prefeitura (modo público)
+  const { config: prefeituraConfig } = usePrefeituraConfig(prefeitura?.id, true);
 
   useEffect(() => {
     const fetchPrefeitura = async () => {

@@ -54,7 +54,7 @@ const defaultConfig: PrefeituraConfig = {
   lgpd_retencao_anos: 5,
 };
 
-export const usePrefeituraConfig = (prefeituraId: string | undefined) => {
+export const usePrefeituraConfig = (prefeituraId: string | undefined, isPublic: boolean = false) => {
   const [config, setConfig] = useState<PrefeituraConfig>(defaultConfig);
   const [loading, setLoading] = useState(true);
 
@@ -65,6 +65,28 @@ export const usePrefeituraConfig = (prefeituraId: string | undefined) => {
         return;
       }
 
+      if (isPublic) {
+        // Usar função pública para acesso não autenticado
+        const { data, error } = await supabase.rpc('get_prefeitura_config_publica', {
+          _prefeitura_id: prefeituraId
+        });
+
+        if (!error && data && data.length > 0) {
+          const publicData = data[0];
+          setConfig({
+            ...defaultConfig,
+            exigir_foto_padrao: publicData.exigir_foto_padrao,
+            permitir_video: publicData.permitir_video,
+            limite_imagens: publicData.limite_imagens,
+            permitir_anexo: publicData.permitir_anexo,
+            lgpd_texto_consentimento: publicData.lgpd_texto_consentimento || defaultConfig.lgpd_texto_consentimento,
+          });
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Acesso autenticado (admin)
       const { data, error } = await supabase
         .from("prefeitura_configuracoes")
         .select("*")
@@ -100,7 +122,7 @@ export const usePrefeituraConfig = (prefeituraId: string | undefined) => {
     };
 
     fetchConfig();
-  }, [prefeituraId]);
+  }, [prefeituraId, isPublic]);
 
   return { config, loading };
 };
