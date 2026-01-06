@@ -252,7 +252,7 @@ const PainelWhatsApp = () => {
     return conversaSelecionada.operador_atendendo_id === currentUserId; // Eu estou atendendo
   };
 
-  // Enviar mensagem
+  // Enviar mensagem com atualização otimista
   const enviarMensagem = async (texto?: string) => {
     const mensagemFinal = texto || novaMensagem.trim();
     if (!mensagemFinal || !conversaSelecionada || enviando) return;
@@ -266,29 +266,44 @@ const PainelWhatsApp = () => {
       return;
     }
 
+    // Limpar input imediatamente para UX rápida
+    const textoParaEnviar = mensagemFinal;
+    setNovaMensagem("");
+    setShowTemplates(false);
+
+    // Adicionar mensagem otimisticamente (aparece instantaneamente)
+    const mensagemOtimista: Mensagem = {
+      id: `temp-${Date.now()}`,
+      conversa_id: conversaSelecionada.id,
+      direcao: "saida",
+      tipo: "texto",
+      conteudo: textoParaEnviar,
+      midia_url: null,
+      enviado_por: "operador",
+      created_at: new Date().toISOString(),
+    };
+    setMensagens(prev => [...prev, mensagemOtimista]);
+
     setEnviando(true);
     
     try {
-      // Chamar edge function para enviar via Evolution API
-      const { data, error } = await supabase.functions.invoke("send-whatsapp-message", {
+      const { error } = await supabase.functions.invoke("send-whatsapp-message", {
         body: {
           prefeitura_id: prefeituraId,
           conversa_id: conversaSelecionada.id,
           telefone: conversaSelecionada.telefone,
-          mensagem: mensagemFinal,
+          mensagem: textoParaEnviar,
         },
       });
 
       if (error) throw error;
 
-      setNovaMensagem("");
-      setShowTemplates(false);
-      toast({
-        title: "Mensagem enviada",
-        description: "A mensagem foi enviada com sucesso.",
-      });
+      // Mensagem enviada com sucesso - o realtime vai atualizar com a mensagem real
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
+      // Remover mensagem otimista em caso de erro
+      setMensagens(prev => prev.filter(m => m.id !== mensagemOtimista.id));
+      setNovaMensagem(textoParaEnviar); // Restaurar texto
       toast({
         title: "Erro ao enviar",
         description: "Não foi possível enviar a mensagem. Verifique a conexão do WhatsApp.",
@@ -353,23 +368,24 @@ const PainelWhatsApp = () => {
   };
 
   const getEstadoBadge = (estado: string) => {
-    const cores: Record<string, string> = {
-      inicio: "bg-muted text-muted-foreground",
-      coletando_dados: "bg-blue-500/20 text-blue-700",
-      confirmando: "bg-yellow-500/20 text-yellow-700",
-      finalizado: "bg-green-500/20 text-green-700",
-    };
-    
-    const labels: Record<string, string> = {
-      inicio: "Início",
-      coletando_dados: "Coletando dados",
-      confirmando: "Confirmando",
-      finalizado: "Finalizado",
+    const config: Record<string, { bg: string; label: string }> = {
+      inicio: { bg: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300", label: "Novo" },
+      dados_pessoais: { bg: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300", label: "Dados" },
+      localizacao: { bg: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300", label: "Local" },
+      tipo_problema: { bg: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300", label: "Tipo" },
+      descricao: { bg: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300", label: "Descrição" },
+      midia: { bg: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300", label: "Mídia" },
+      confirmacao: { bg: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300", label: "Confirmar" },
+      finalizado: { bg: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300", label: "Concluído" },
+      coletando_dados: { bg: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300", label: "Coletando" },
+      confirmando: { bg: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300", label: "Confirmando" },
     };
 
+    const cfg = config[estado] || { bg: "bg-muted text-muted-foreground", label: estado };
+
     return (
-      <Badge variant="outline" className={cores[estado] || "bg-muted"}>
-        {labels[estado] || estado}
+      <Badge variant="outline" className={`${cfg.bg} border-0 text-xs px-2 py-0.5 whitespace-nowrap`}>
+        {cfg.label}
       </Badge>
     );
   };
@@ -490,37 +506,39 @@ const PainelWhatsApp = () => {
                   <button
                     key={conversa.id}
                     onClick={() => setConversaSelecionada(conversa)}
-                    className={`w-full p-4 text-left hover:bg-muted/50 transition-colors ${
+                    className={`w-full p-3 text-left hover:bg-muted/50 transition-colors ${
                       conversaSelecionada?.id === conversa.id ? "bg-primary/10" : ""
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 relative">
-                        <User className="w-5 h-5 text-primary" />
+                      <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 relative">
+                        <User className="w-4 h-4 text-primary" />
                         {conversa.operador_atendendo_id && (
-                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
-                            <Lock className="w-2.5 h-2.5 text-white" />
+                          <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-yellow-500 rounded-full flex items-center justify-center">
+                            <Lock className="w-2 h-2 text-white" />
                           </div>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-foreground truncate">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-foreground text-sm truncate flex-1">
                             {conversa.nome_cidadao || "Cidadão"}
                           </span>
                           {getEstadoBadge(conversa.estado)}
                         </div>
-                        <p className="text-sm text-muted-foreground truncate flex items-center gap-1 mt-1">
-                          <Phone className="w-3 h-3" />
-                          {formatarTelefone(conversa.telefone)}
-                        </p>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                          <Clock className="w-3 h-3" />
-                          {formatDistanceToNow(new Date(conversa.ultima_mensagem_at), {
-                            addSuffix: true,
-                            locale: ptBR,
-                          })}
-                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Phone className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">{formatarTelefone(conversa.telefone)}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="w-3 h-3 flex-shrink-0" />
+                          <span>
+                            {formatDistanceToNow(new Date(conversa.ultima_mensagem_at), {
+                              addSuffix: true,
+                              locale: ptBR,
+                            })}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </button>
