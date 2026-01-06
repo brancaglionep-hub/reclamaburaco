@@ -929,15 +929,19 @@ ${categorias.length > 0
 5. Se o cidadão mandar tudo de uma vez, extraia todos os dados
 6. Antes de criar, mostre resumo e peça confirmação
 7. Use markdown do WhatsApp: *negrito* _itálico_
+8. ⚠️ FORMATAÇÃO CRÍTICA: Use QUEBRAS DE LINHA REAIS (enter) no texto. NUNCA escreva literalmente "\\n" ou "\\n\\n" - essas são sequências de escape que aparecem como texto!
 
 📍 CONFIRMAÇÃO DE RUA (OBRIGATÓRIO):
-Quando identificar a rua na mensagem do cidadão, SEMPRE pergunte para confirmar:
-"Entendi! A reclamação é para a *Rua [nome da rua identificada]*?
+Quando identificar a rua na mensagem do cidadão, SEMPRE pergunte para confirmar.
+Use QUEBRAS DE LINHA REAIS (aperte enter) e NÃO escreva "\\n" literalmente.
+Exemplo correto:
+
+Entendi! A reclamação é para a *Rua [nome da rua identificada]*?
 
 1️⃣ Sim, é essa rua
 2️⃣ Não, é outra rua
 
-Digite o número da opção."
+Digite o número da opção.
 
 - Se o cidadão responder "1" ou "sim", prossiga para perguntar o NÚMERO da casa
 - Se responder "2" ou "não", peça para informar a rua correta
@@ -948,17 +952,17 @@ Digite o número da opção."
 **IMPORTANTE**: Se o número já existir nos dados_coletados, NÃO peça confirmação novamente! Vá direto para a próxima etapa (tipo_problema).
 
 Se ainda não tiver o número, depois que o cidadão confirmar a RUA, pergunte:
-"Qual é o *número* da casa ou próximo? 🏠
+Qual é o *número* da casa ou próximo? 🏠
 
-Se não souber o número exato, digite 1️⃣ para continuar."
+Se não souber o número exato, digite 1️⃣ para continuar.
 
 Após o cidadão informar o número, pergunte para confirmar:
-"O número é *[número informado]*?
+O número é *[número informado]*?
 
 1️⃣ Sim, o número é este mesmo
 2️⃣ Não, é outro número
 
-Digite o número da opção."
+Digite o número da opção.
 
 - Se o cidadão responder "1" ou "sim", salve o número nos dados_extraidos e prossiga IMEDIATAMENTE para tipo_problema
 - Se responder "2" ou "não", peça para informar o número correto
