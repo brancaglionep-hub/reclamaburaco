@@ -20,7 +20,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { toast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Reclamacao, ReclamacaoComSla, statusConfig, slaConfig } from "@/components/painel/reclamacoes/types";
 import { processarReclamacoes, ordenarPorUrgencia, formatarTempoEspera } from "@/components/painel/reclamacoes/utils";
@@ -38,6 +38,7 @@ const ITEMS_PER_PAGE = 10;
 const PainelReclamacoes = () => {
   const { prefeituraId } = useOutletContext<OutletContext>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [tempoFilter, setTempoFilter] = useState<string>("all");
@@ -171,6 +172,20 @@ const PainelReclamacoes = () => {
   const handleFilterChange = (setter: (value: string) => void) => (value: string) => {
     setter(value);
     setCurrentPage(1);
+  };
+
+  const markAsReadOptimistic = (reclamacaoId: string) => {
+    queryClient
+      .getQueryCache()
+      .findAll({ queryKey: ["painel-reclamacoes", prefeituraId] })
+      .forEach((query) => {
+        queryClient.setQueryData(query.queryKey, (old) => {
+          if (!Array.isArray(old)) return old;
+          return (old as Reclamacao[]).map((r) =>
+            r.id === reclamacaoId ? { ...r, visualizada: true } : r
+          );
+        });
+      });
   };
 
   const exportToExcel = () => {
@@ -520,14 +535,27 @@ const PainelReclamacoes = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={async () => {
-                            // Marcar como visualizada antes de navegar
+                          onClick={() => {
+                            // Instantâneo: atualiza o cache local antes de navegar
                             if (!reclamacao.visualizada) {
-                              await supabase
+                              markAsReadOptimistic(reclamacao.id);
+                              void supabase
                                 .from("reclamacoes")
                                 .update({ visualizada: true })
-                                .eq("id", reclamacao.id);
+                                .eq("id", reclamacao.id)
+                                .then(({ error }) => {
+                                  if (error) {
+                                    toast({
+                                      title: "Não foi possível marcar como lida",
+                                      variant: "destructive",
+                                    });
+                                    queryClient.invalidateQueries({
+                                      queryKey: ["painel-reclamacoes", prefeituraId],
+                                    });
+                                  }
+                                });
                             }
+
                             navigate(`/painel/${prefeituraId}/reclamacoes/${reclamacao.id}`);
                           }}
                         >
