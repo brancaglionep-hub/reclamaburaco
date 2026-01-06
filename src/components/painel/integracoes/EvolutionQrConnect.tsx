@@ -80,7 +80,13 @@ const EvolutionQrConnect = ({
       if (error) throw error;
 
       if (data?.valor) {
-        setGlobalConfig(data.valor as unknown as EvolutionGlobalConfig);
+        const valor = data.valor as Record<string, unknown>;
+        const config: EvolutionGlobalConfig = {
+          url: typeof valor.url === "string" ? valor.url : null,
+          api_key: typeof valor.api_key === "string" ? valor.api_key : null,
+        };
+        console.log("Evolution config loaded:", { url: config.url ? "SET" : "NOT SET", api_key: config.api_key ? "SET" : "NOT SET" });
+        setGlobalConfig(config);
       }
     } catch (error) {
       console.error("Erro ao carregar configuração global:", error);
