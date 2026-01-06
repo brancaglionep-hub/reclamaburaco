@@ -18,6 +18,122 @@ interface ConfirmationRequest {
   categoria: string;
   prefeitura_nome: string;
   prefeitura_id: string;
+  telefone_cidadao?: string;
+}
+
+// Função auxiliar para enviar WhatsApp via Evolution API
+async function sendWhatsAppConfirmation(
+  supabase: any,
+  prefeituraId: string,
+  telefone: string,
+  nomeCidadao: string,
+  protocolo: string,
+  rua: string,
+  bairro: string,
+  categoria: string,
+  prefeituraNome: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log("Tentando enviar WhatsApp para:", telefone);
+
+    // Buscar configuração da prefeitura
+    const { data: prefeitura, error: prefError } = await supabase
+      .from('prefeituras')
+      .select('id, nome, evolution_api_url, evolution_api_key, evolution_instance_name, evolution_connected')
+      .eq('id', prefeituraId)
+      .single();
+
+    if (prefError || !prefeitura) {
+      console.log("Prefeitura não encontrada para WhatsApp");
+      return { success: false, error: "Prefeitura não encontrada" };
+    }
+
+    // Buscar configuração global da Evolution API
+    const { data: globalConfig } = await supabase
+      .from('configuracoes_sistema')
+      .select('valor')
+      .eq('chave', 'evolution_api')
+      .single();
+
+    let evolutionUrl = '';
+    let evolutionKey = '';
+
+    // Priorizar configuração global, depois local
+    if (globalConfig?.valor) {
+      const config = globalConfig.valor as { url?: string; api_key?: string };
+      evolutionUrl = config.url || '';
+      evolutionKey = config.api_key || '';
+    }
+    if (!evolutionUrl && prefeitura.evolution_api_url) {
+      evolutionUrl = prefeitura.evolution_api_url;
+    }
+    if (!evolutionKey && prefeitura.evolution_api_key) {
+      evolutionKey = prefeitura.evolution_api_key;
+    }
+
+    const instanceName = prefeitura.evolution_instance_name;
+
+    if (!prefeitura.evolution_connected || !evolutionUrl || !evolutionKey || !instanceName) {
+      console.log("WhatsApp não configurado para esta prefeitura");
+      return { success: false, error: "WhatsApp não configurado" };
+    }
+
+    // Formatar número (garantir formato correto)
+    let numero = telefone.replace(/\D/g, '');
+    if (!numero.startsWith('55')) {
+      numero = '55' + numero;
+    }
+
+    // Montar mensagem
+    const mensagem = `✅ *Reclamação Registrada*
+
+Olá, ${nomeCidadao}!
+
+Sua reclamação foi registrada com sucesso na ${prefeituraNome}.
+
+📋 *Protocolo:* ${protocolo}
+
+📍 *Local:* ${rua}${bairro ? `, ${bairro}` : ''}
+📂 *Categoria:* ${categoria}
+📊 *Status:* Recebida
+
+Você receberá atualizações quando houver mudanças no status da sua reclamação.
+
+Obrigado por colaborar com a melhoria da nossa cidade!`;
+
+    // Enviar via Evolution API
+    const finalEvolutionUrl = evolutionUrl.replace(/\/$/, '');
+
+    console.log('Enviando WhatsApp via Evolution API...');
+    console.log('URL:', `${finalEvolutionUrl}/message/sendText/${instanceName}`);
+
+    const evolutionResponse = await fetch(`${finalEvolutionUrl}/message/sendText/${instanceName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': evolutionKey,
+      },
+      body: JSON.stringify({
+        number: numero,
+        text: mensagem,
+      }),
+    });
+
+    const evolutionResultText = await evolutionResponse.text();
+    console.log('Status HTTP WhatsApp:', evolutionResponse.status);
+
+    if (!evolutionResponse.ok) {
+      console.error('Erro Evolution API:', evolutionResponse.status, evolutionResultText);
+      return { success: false, error: `Erro HTTP ${evolutionResponse.status}` };
+    }
+
+    console.log("WhatsApp enviado com sucesso para:", numero);
+    return { success: true };
+
+  } catch (error) {
+    console.error("Erro ao enviar WhatsApp:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Erro desconhecido" };
+  }
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -34,10 +150,14 @@ const handler = async (req: Request): Promise<Response> => {
       bairro,
       categoria,
       prefeitura_nome,
-      prefeitura_id
+      prefeitura_id,
+      telefone_cidadao
     }: ConfirmationRequest = await req.json();
 
-    console.log("Sending complaint confirmation email to:", to_email);
+    console.log("=== Send Complaint Confirmation ===");
+    console.log("Email:", to_email);
+    console.log("Telefone:", telefone_cidadao);
+    console.log("Protocolo:", protocolo);
 
     // SECURITY: Validate required fields
     if (!to_email || !protocolo || !prefeitura_id) {
@@ -55,7 +175,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { data: complaint, error: complaintError } = await supabase
       .from("reclamacoes")
-      .select("id, protocolo, email_cidadao, prefeitura_id")
+      .select("id, protocolo, email_cidadao, telefone_cidadao, prefeitura_id")
       .eq("protocolo", protocolo)
       .eq("prefeitura_id", prefeitura_id)
       .eq("email_cidadao", to_email)
@@ -69,8 +189,9 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("Complaint verified, sending confirmation email for protocol:", protocolo);
+    console.log("Complaint verified, sending confirmation for protocol:", protocolo);
 
+    // ========== ENVIAR EMAIL ==========
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -174,25 +295,70 @@ const handler = async (req: Request): Promise<Response> => {
       </html>
     `;
 
-    const emailResponse = await resend.emails.send({
-      from: "Civita Infra <naoresponda@civitainfra.com.br>",
-      to: [to_email],
-      subject: `Reclamação Registrada - Protocolo ${protocolo}`,
-      html: htmlContent,
-    });
+    let emailSuccess = false;
+    let emailError = null;
 
-    console.log("Confirmation email sent successfully:", emailResponse);
+    try {
+      const emailResponse = await resend.emails.send({
+        from: "Civita Infra <naoresponda@civitainfra.com.br>",
+        to: [to_email],
+        subject: `Reclamação Registrada - Protocolo ${protocolo}`,
+        html: htmlContent,
+      });
 
-    if (emailResponse.error) {
-      console.error("Resend API error:", emailResponse.error);
-      return new Response(
-        JSON.stringify({ error: emailResponse.error.message }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      console.log("Email response:", emailResponse);
+
+      if (emailResponse.error) {
+        console.error("Resend API error:", emailResponse.error);
+        emailError = emailResponse.error.message;
+      } else {
+        emailSuccess = true;
+        console.log("Email enviado com sucesso!");
+      }
+    } catch (error) {
+      console.error("Erro ao enviar email:", error);
+      emailError = error instanceof Error ? error.message : "Erro desconhecido";
     }
 
+    // ========== ENVIAR WHATSAPP ==========
+    let whatsappSuccess = false;
+    let whatsappError = null;
+
+    // Usar telefone do parâmetro ou da reclamação
+    const telefoneParaWhatsApp = telefone_cidadao || complaint.telefone_cidadao;
+
+    if (telefoneParaWhatsApp) {
+      const whatsappResult = await sendWhatsAppConfirmation(
+        supabase,
+        prefeitura_id,
+        telefoneParaWhatsApp,
+        nome_cidadao,
+        protocolo,
+        rua,
+        bairro,
+        categoria,
+        prefeitura_nome
+      );
+      whatsappSuccess = whatsappResult.success;
+      whatsappError = whatsappResult.error;
+    } else {
+      console.log("Telefone não informado, WhatsApp não será enviado");
+    }
+
+    // Retornar resultado
     return new Response(
-      JSON.stringify({ success: true, id: emailResponse.data?.id }),
+      JSON.stringify({ 
+        success: emailSuccess || whatsappSuccess,
+        email: {
+          sent: emailSuccess,
+          error: emailError
+        },
+        whatsapp: {
+          sent: whatsappSuccess,
+          error: whatsappError,
+          telefone: telefoneParaWhatsApp ? "***" + telefoneParaWhatsApp.slice(-4) : null
+        }
+      }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   } catch (error: any) {
