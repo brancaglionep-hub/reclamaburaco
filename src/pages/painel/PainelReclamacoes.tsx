@@ -64,6 +64,7 @@ const PainelReclamacoes = () => {
           telefone_cidadao,
           descricao,
           categoria_id,
+          visualizada,
           bairros (nome),
           categorias (nome, icone)
         `)
@@ -360,8 +361,9 @@ const PainelReclamacoes = () => {
     }
   };
 
-  // Estatísticas de SLA
+  // Estatísticas de SLA e novas reclamações
   const stats = {
+    novas: reclamacoesProcessadas.filter(r => !r.visualizada).length,
     vencidos: reclamacoesProcessadas.filter(r => r.slaStatus === 'vencido').length,
     proximos: reclamacoesProcessadas.filter(r => r.slaStatus === 'proximo').length,
     noPrazo: reclamacoesProcessadas.filter(r => r.slaStatus === 'dentro').length,
@@ -385,6 +387,15 @@ const PainelReclamacoes = () => {
         
         {/* Cards de resumo SLA */}
         <div className="flex gap-3">
+          {stats.novas > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200">
+              <span className="text-lg">🔵</span>
+              <div>
+                <div className="text-lg font-bold text-blue-700">{stats.novas}</div>
+                <div className="text-xs text-blue-600">Novas</div>
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200">
             <span className="text-lg">🔴</span>
             <div>
@@ -455,24 +466,45 @@ const PainelReclamacoes = () => {
             ) : (
               paginatedReclamacoes.map((reclamacao) => {
                 const status = statusConfig[reclamacao.status] || statusConfig.recebida;
+                const isNaoLida = !reclamacao.visualizada;
+                
                 return (
-                  <TableRow key={reclamacao.id} className={reclamacao.slaStatus === 'vencido' ? 'bg-red-50/50' : ''}>
+                  <TableRow 
+                    key={reclamacao.id} 
+                    className={`
+                      ${reclamacao.slaStatus === 'vencido' ? 'bg-red-50/50' : ''}
+                      ${isNaoLida ? 'bg-blue-50/30 hover:bg-blue-50/50' : ''}
+                    `}
+                  >
                     <TableCell>
-                      <SlaBadge status={reclamacao.slaStatus} dias={reclamacao.diasEspera} />
+                      <div className="flex items-center gap-2">
+                        {isNaoLida && (
+                          <div className="w-2 h-2 rounded-full bg-primary animate-pulse" title="Nova reclamação" />
+                        )}
+                        <SlaBadge status={reclamacao.slaStatus} dias={reclamacao.diasEspera} />
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
-                        <span className="font-mono text-sm font-medium">{reclamacao.protocolo}</span>
+                        <span className={`font-mono text-sm ${isNaoLida ? 'font-bold text-foreground' : 'font-medium'}`}>
+                          {reclamacao.protocolo}
+                        </span>
                         {reclamacao.isRecorrente && <RecorrenciaBadge />}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm">{reclamacao.categorias?.nome || "-"}</span>
+                      <span className={`text-sm ${isNaoLida ? 'font-semibold' : ''}`}>
+                        {reclamacao.categorias?.nome || "-"}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium">{reclamacao.bairros?.nome || "-"}</span>
-                        <span className="text-xs text-muted-foreground truncate max-w-[200px]">{reclamacao.rua}</span>
+                        <span className={`text-sm ${isNaoLida ? 'font-bold' : 'font-medium'}`}>
+                          {reclamacao.bairros?.nome || "-"}
+                        </span>
+                        <span className={`text-xs text-muted-foreground truncate max-w-[200px] ${isNaoLida ? 'font-medium' : ''}`}>
+                          {reclamacao.rua}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -480,7 +512,7 @@ const PainelReclamacoes = () => {
                         {status.label}
                       </span>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
+                    <TableCell className={`text-sm ${isNaoLida ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
                       {new Date(reclamacao.created_at).toLocaleDateString("pt-BR")}
                     </TableCell>
                     <TableCell className="text-right">
@@ -488,7 +520,16 @@ const PainelReclamacoes = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => navigate(`/painel/${prefeituraId}/reclamacoes/${reclamacao.id}`)}
+                          onClick={async () => {
+                            // Marcar como visualizada antes de navegar
+                            if (!reclamacao.visualizada) {
+                              await supabase
+                                .from("reclamacoes")
+                                .update({ visualizada: true })
+                                .eq("id", reclamacao.id);
+                            }
+                            navigate(`/painel/${prefeituraId}/reclamacoes/${reclamacao.id}`);
+                          }}
                         >
                           <Eye className="w-4 h-4 mr-1" />
                           Ver

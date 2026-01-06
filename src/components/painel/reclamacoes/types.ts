@@ -11,6 +11,7 @@ export interface Reclamacao {
   telefone_cidadao: string | null;
   descricao: string;
   categoria_id: string | null;
+  visualizada: boolean;
   bairros: { nome: string } | null;
   categorias: { nome: string; icone: string | null } | null;
 }

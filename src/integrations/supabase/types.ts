@@ -637,6 +637,7 @@ export type Database = {
           telefone_cidadao: string | null
           updated_at: string | null
           videos: string[] | null
+          visualizada: boolean | null
         }
         Insert: {
           bairro_id?: string | null
@@ -658,6 +659,7 @@ export type Database = {
           telefone_cidadao?: string | null
           updated_at?: string | null
           videos?: string[] | null
+          visualizada?: boolean | null
         }
         Update: {
           bairro_id?: string | null
@@ -679,6 +681,7 @@ export type Database = {
           telefone_cidadao?: string | null
           updated_at?: string | null
           videos?: string[] | null
+          visualizada?: boolean | null
         }
         Relationships: [
           {
