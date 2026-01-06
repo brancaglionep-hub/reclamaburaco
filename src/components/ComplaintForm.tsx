@@ -403,7 +403,8 @@ const ComplaintForm = ({ onClose, prefeituraId = PREFEITURA_ID, bairroId, config
             bairro: bairroNome,
             categoria: categoriaNome,
             prefeitura_nome: `Prefeitura Municipal de ${prefeituraCidade}`,
-            prefeitura_id: prefeituraId
+            prefeitura_id: prefeituraId,
+            telefone_cidadao: formData.telefone || null
           }
         });
       } catch (emailError) {
