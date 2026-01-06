@@ -12,11 +12,26 @@ import {
   XCircle,
   Smartphone,
   Settings,
-  Link as LinkIcon,
-  AlertCircle
+  AlertCircle,
+  Power,
+  Phone,
+  Clock,
+  MessageSquare,
+  Unplug
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface EvolutionQrConnectProps {
   prefeituraId: string;
@@ -41,6 +56,12 @@ interface EvolutionGlobalConfig {
   api_key: string | null;
 }
 
+interface WebhookInfo {
+  enabled: boolean;
+  url: string | null;
+  events: string[];
+}
+
 const WEBHOOK_URL = "https://sfsjtljhrelctpxpzody.supabase.co/functions/v1/receive-evolution-webhook";
 const PROXY_URL = "https://sfsjtljhrelctpxpzody.supabase.co/functions/v1/evolution-api-proxy";
 
@@ -56,18 +77,25 @@ const EvolutionQrConnect = ({
   const [checkingConnection, setCheckingConnection] = useState(false);
   const [loadingQr, setLoadingQr] = useState(false);
   const [configuringWebhook, setConfiguringWebhook] = useState(false);
-  const [webhookConfigured, setWebhookConfigured] = useState(false);
+  const [webhookInfo, setWebhookInfo] = useState<WebhookInfo | null>(null);
+  const [checkingWebhook, setCheckingWebhook] = useState(false);
   const [qrCode, setQrCode] = useState<QrCodeData | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState | null>(null);
   const [awaitingScan, setAwaitingScan] = useState(false);
   const [justConnected, setJustConnected] = useState(false);
   const [countdown, setCountdown] = useState(5);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [totalMessages, setTotalMessages] = useState<number>(0);
 
   const instanceName = `prefeitura-${prefeituraSlug}`;
   
   useEffect(() => {
     fetchGlobalConfig();
-  }, []);
+    if (evolutionConnected) {
+      fetchWebhookStatus();
+      fetchMessageCount();
+    }
+  }, [evolutionConnected]);
 
   const fetchGlobalConfig = async () => {
     try {
@@ -85,13 +113,44 @@ const EvolutionQrConnect = ({
           url: typeof valor.url === "string" ? valor.url : null,
           api_key: typeof valor.api_key === "string" ? valor.api_key : null,
         };
-        console.log("Evolution config loaded:", { url: config.url ? "SET" : "NOT SET", api_key: config.api_key ? "SET" : "NOT SET" });
         setGlobalConfig(config);
       }
     } catch (error) {
       console.error("Erro ao carregar configuração global:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchWebhookStatus = async () => {
+    setCheckingWebhook(true);
+    try {
+      const response = await callEvolutionProxy(`/webhook/find/${instanceName}`);
+      if (response.ok) {
+        const data = await response.json();
+        setWebhookInfo({
+          enabled: data?.enabled || data?.webhook?.enabled || false,
+          url: data?.url || data?.webhook?.url || null,
+          events: data?.events || data?.webhook?.events || [],
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao verificar webhook:", error);
+    } finally {
+      setCheckingWebhook(false);
+    }
+  };
+
+  const fetchMessageCount = async () => {
+    try {
+      const { count } = await supabase
+        .from("whatsapp_mensagens")
+        .select("*", { count: "exact", head: true })
+        .eq("prefeitura_id", prefeituraId);
+      
+      setTotalMessages(count || 0);
+    } catch (error) {
+      console.error("Erro ao buscar contagem de mensagens:", error);
     }
   };
 
@@ -136,7 +195,6 @@ const EvolutionQrConnect = ({
         setConnectionState(data.instance || data);
         toast.success("🎉 WhatsApp CONECTADO com sucesso!");
         
-        // Atualizar dados e recarregar página após 2 segundos
         setTimeout(() => {
           onConfigUpdate();
           window.location.reload();
@@ -152,32 +210,28 @@ const EvolutionQrConnect = ({
     }
   }, [isGlobalConfigured, instanceName, onConfigUpdate]);
 
-  // Auto-check connection every 5 seconds when QR code is displayed (more frequent for better UX)
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (qrCode?.base64 && !evolutionConnected && !justConnected) {
       setAwaitingScan(true);
-      setCountdown(3); // Initial check after 3 seconds
+      setCountdown(3);
       
-      // Countdown timer
       countdownRef.current = setInterval(() => {
         setCountdown(prev => {
           if (prev <= 1) {
-            return 5; // Reset to 5 seconds after each check
+            return 5;
           }
           return prev - 1;
         });
       }, 1000);
       
-      // Check immediately after 3 seconds
       const initialCheck = setTimeout(() => {
         checkConnectionSilent();
         setCountdown(5);
       }, 3000);
       
-      // Then check every 5 seconds
       pollingRef.current = setInterval(async () => {
         const connected = await checkConnectionSilent();
         if (connected) {
@@ -224,7 +278,6 @@ const EvolutionQrConnect = ({
       const data = await response.json();
       
       if (!response.ok) {
-        // Instance might not exist yet, that's ok
         if (response.status === 404) {
           toast.info("Clique em 'Conectar WhatsApp' para iniciar.");
           return;
@@ -239,6 +292,7 @@ const EvolutionQrConnect = ({
       if (isConnected) {
         setQrCode(null);
         toast.success("WhatsApp conectado!");
+        fetchWebhookStatus();
       } else {
         toast.info("WhatsApp não conectado. Clique em 'Conectar WhatsApp'.");
       }
@@ -262,7 +316,6 @@ const EvolutionQrConnect = ({
     setQrCode(null);
 
     try {
-      // First check if instance exists
       const instanceResponse = await callEvolutionProxy(`/instance/fetchInstances`);
 
       if (instanceResponse.ok) {
@@ -270,7 +323,6 @@ const EvolutionQrConnect = ({
         const instanceExists = Array.isArray(instances) && instances.some((i: { name: string }) => i.name === instanceName);
 
         if (!instanceExists) {
-          // Create instance with auto webhook configuration
           toast.info("Criando instância...");
           const createResponse = await callEvolutionProxy(
             `/instance/create`,
@@ -294,7 +346,6 @@ const EvolutionQrConnect = ({
             throw new Error(createData.error || "Erro ao criar instância");
           }
 
-          // Save instance name to prefeitura
           await supabase
             .from("prefeituras")
             .update({ evolution_instance_name: instanceName })
@@ -302,7 +353,7 @@ const EvolutionQrConnect = ({
 
           if (createData.qrcode?.base64) {
             setQrCode({ base64: createData.qrcode.base64 });
-            setWebhookConfigured(true);
+            setWebhookInfo({ enabled: true, url: WEBHOOK_URL, events: ["MESSAGES_UPSERT"] });
             setAwaitingScan(true);
             toast.success("Instância criada! Escaneie o QR Code.");
             setLoadingQr(false);
@@ -311,7 +362,6 @@ const EvolutionQrConnect = ({
         }
       }
 
-      // Connect instance to get QR code
       const connectResponse = await callEvolutionProxy(`/instance/connect/${instanceName}`);
       const data = await connectResponse.json();
 
@@ -337,6 +387,32 @@ const EvolutionQrConnect = ({
     }
   };
 
+  const disconnectWhatsApp = async () => {
+    setDisconnecting(true);
+    try {
+      const response = await callEvolutionProxy(`/instance/logout/${instanceName}`, "DELETE");
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Erro ao desconectar");
+      }
+
+      await supabase
+        .from("prefeituras")
+        .update({ evolution_connected: false, evolution_phone: null })
+        .eq("id", prefeituraId);
+
+      toast.success("WhatsApp desconectado!");
+      onConfigUpdate();
+      window.location.reload();
+    } catch (error) {
+      console.error("Erro ao desconectar:", error);
+      toast.error("Erro ao desconectar WhatsApp");
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
   const configureWebhook = async () => {
     if (!isGlobalConfigured) {
       toast.error("Evolution API não configurada");
@@ -344,7 +420,6 @@ const EvolutionQrConnect = ({
     }
 
     setConfiguringWebhook(true);
-    setWebhookConfigured(false);
 
     try {
       const response = await callEvolutionProxy(
@@ -364,8 +439,8 @@ const EvolutionQrConnect = ({
         throw new Error(data.error || "Erro ao configurar webhook");
       }
 
-      setWebhookConfigured(true);
-      toast.success("Webhook configurado! O sistema receberá mensagens automaticamente.");
+      setWebhookInfo({ enabled: true, url: WEBHOOK_URL, events: ["MESSAGES_UPSERT"] });
+      toast.success("Webhook configurado!");
     } catch (error) {
       console.error("Erro ao configurar webhook:", error);
       toast.error("Erro ao configurar webhook.");
@@ -410,188 +485,330 @@ const EvolutionQrConnect = ({
     );
   }
 
+  const isWebhookConfigured = webhookInfo?.enabled && webhookInfo?.url;
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <QrCode className="w-5 h-5" />
-            Conexão WhatsApp
-          </span>
-          <Badge 
-            variant={evolutionConnected ? "default" : "secondary"}
-            className="gap-1"
-          >
-            {evolutionConnected ? (
-              <>
-                <Wifi className="w-3 h-3" />
-                Conectado
-              </>
-            ) : (
-              <>
-                <WifiOff className="w-3 h-3" />
-                Desconectado
-              </>
-            )}
-          </Badge>
-        </CardTitle>
-        <CardDescription>
-          {evolutionConnected 
-            ? "Seu WhatsApp está conectado e pronto para receber reclamações"
-            : "Conecte seu WhatsApp para receber reclamações automaticamente"
-          }
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Instance Info */}
-        <div className="p-3 bg-muted/50 rounded-lg">
-          <p className="text-sm text-muted-foreground">
-            <strong>Nome da instância:</strong> {instanceName}
-          </p>
-          {evolutionPhone && (
-            <p className="text-sm text-muted-foreground">
-              <strong>Telefone:</strong> {evolutionPhone}
-            </p>
-          )}
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            onClick={checkConnection}
-            disabled={checkingConnection}
-          >
-            {checkingConnection ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4 mr-2" />
-            )}
-            Verificar Conexão
-          </Button>
-          
-          {!evolutionConnected && (
-            <Button onClick={connectWhatsApp} disabled={loadingQr}>
-              {loadingQr ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <QrCode className="w-4 h-4 mr-2" />
-              )}
-              Conectar WhatsApp
-            </Button>
-          )}
-
-          {evolutionConnected && !webhookConfigured && (
-            <Button 
-              variant="outline" 
-              onClick={configureWebhook}
-              disabled={configuringWebhook}
+    <div className="space-y-4">
+      {/* Card principal de conexão */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <QrCode className="w-5 h-5" />
+              Conexão WhatsApp
+            </span>
+            <Badge 
+              variant={evolutionConnected ? "default" : "secondary"}
+              className={`gap-1 ${evolutionConnected ? "bg-green-600 hover:bg-green-700" : ""}`}
             >
-              {configuringWebhook ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              {evolutionConnected ? (
+                <>
+                  <Wifi className="w-3 h-3" />
+                  Conectado
+                </>
               ) : (
-                <Settings className="w-4 h-4 mr-2" />
+                <>
+                  <WifiOff className="w-3 h-3" />
+                  Desconectado
+                </>
               )}
-              Configurar Webhook
-            </Button>
-          )}
-        </div>
-
-        {/* Just Connected Success Message */}
-        {justConnected && (
-          <div className="flex flex-col items-center gap-4 p-8 bg-green-50 dark:bg-green-950/30 border-2 border-green-500 rounded-lg animate-pulse">
-            <CheckCircle className="w-16 h-16 text-green-600" />
-            <div className="text-center">
-              <h3 className="text-2xl font-bold text-green-700 dark:text-green-400">
-                CONECTADO!
-              </h3>
-              <p className="text-green-600 dark:text-green-500 mt-2">
-                WhatsApp conectado com sucesso!
-              </p>
-              <div className="flex items-center justify-center gap-2 mt-4 text-sm text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Atualizando página...
+            </Badge>
+          </CardTitle>
+          <CardDescription>
+            {evolutionConnected 
+              ? "Seu WhatsApp está conectado e pronto para receber reclamações"
+              : "Conecte seu WhatsApp para receber reclamações automaticamente"
+            }
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Informações quando conectado */}
+          {evolutionConnected && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+                <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
+                  <Phone className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Telefone</p>
+                  <p className="font-medium">{evolutionPhone || "Não identificado"}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                  <MessageSquare className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Mensagens recebidas</p>
+                  <p className="font-medium">{totalMessages.toLocaleString()}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-full">
+                  <Clock className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Instância</p>
+                  <p className="font-medium text-xs truncate">{instanceName}</p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* QR Code Display */}
-        {qrCode?.base64 && !justConnected && (
-          <div className="flex flex-col items-center gap-4 p-6 bg-white dark:bg-gray-900 rounded-lg border">
-            <p className="text-sm text-muted-foreground text-center">
-              Escaneie o QR Code abaixo com o WhatsApp do celular que será usado para receber reclamações
-            </p>
-            <div className="p-4 bg-white rounded-lg shadow-sm relative">
-              <img 
-                src={qrCode.base64.startsWith("data:") ? qrCode.base64 : `data:image/png;base64,${qrCode.base64}`} 
-                alt="QR Code WhatsApp" 
-                className="w-64 h-64"
-              />
+          {/* Instance Info quando desconectado */}
+          {!evolutionConnected && (
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                <strong>Nome da instância:</strong> {instanceName}
+              </p>
             </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={checkConnection}
+              disabled={checkingConnection}
+            >
+              {checkingConnection ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
+              Verificar Conexão
+            </Button>
             
-            {/* Awaiting Scan Indicator */}
-            {awaitingScan && (
-              <div className="flex flex-col items-center gap-3 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg w-full">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+            {!evolutionConnected && (
+              <Button onClick={connectWhatsApp} disabled={loadingQr}>
+                {loadingQr ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <QrCode className="w-4 h-4 mr-2" />
+                )}
+                Conectar WhatsApp
+              </Button>
+            )}
+
+            {evolutionConnected && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" disabled={disconnecting}>
+                    {disconnecting ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Unplug className="w-4 h-4 mr-2" />
+                    )}
+                    Desconectar
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Desconectar WhatsApp?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Ao desconectar, você deixará de receber reclamações via WhatsApp até reconectar novamente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={disconnectWhatsApp} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Sim, desconectar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+
+          {/* Just Connected Success Message */}
+          {justConnected && (
+            <div className="flex flex-col items-center gap-4 p-8 bg-green-50 dark:bg-green-950/30 border-2 border-green-500 rounded-lg animate-pulse">
+              <CheckCircle className="w-16 h-16 text-green-600" />
+              <div className="text-center">
+                <h3 className="text-2xl font-bold text-green-700 dark:text-green-400">
+                  CONECTADO!
+                </h3>
+                <p className="text-green-600 dark:text-green-500 mt-2">
+                  WhatsApp conectado com sucesso!
+                </p>
+                <div className="flex items-center justify-center gap-2 mt-4 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Atualizando página...
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* QR Code Display */}
+          {qrCode?.base64 && !justConnected && (
+            <div className="flex flex-col items-center gap-4 p-6 bg-white dark:bg-gray-900 rounded-lg border">
+              <p className="text-sm text-muted-foreground text-center">
+                Escaneie o QR Code abaixo com o WhatsApp do celular que será usado para receber reclamações
+              </p>
+              <div className="p-4 bg-white rounded-lg shadow-sm relative">
+                <img 
+                  src={qrCode.base64.startsWith("data:") ? qrCode.base64 : `data:image/png;base64,${qrCode.base64}`} 
+                  alt="QR Code WhatsApp" 
+                  className="w-64 h-64"
+                />
+              </div>
+              
+              {awaitingScan && (
+                <div className="flex flex-col items-center gap-3 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg w-full">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                      </span>
+                    </div>
+                    <span className="font-medium text-blue-700 dark:text-blue-300">
+                      Aguardando leitura do QR Code...
                     </span>
                   </div>
-                  <span className="font-medium text-blue-700 dark:text-blue-300">
-                    Aguardando leitura do QR Code...
-                  </span>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 text-center">
+                    Abra o WhatsApp no celular → Menu (⋮) → Dispositivos conectados → Conectar dispositivo
+                  </p>
+                  <div className="flex items-center justify-center gap-3 p-2 bg-blue-100 dark:bg-blue-900/50 rounded-md">
+                    <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                      Próxima verificação em
+                    </span>
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-lg">
+                      {countdown}
+                    </span>
+                    <span className="text-sm text-blue-600 dark:text-blue-400">
+                      segundo{countdown !== 1 ? 's' : ''}
+                    </span>
+                  </div>
                 </div>
-                <p className="text-xs text-blue-600 dark:text-blue-400 text-center">
-                  Abra o WhatsApp no celular → Menu (⋮) → Dispositivos conectados → Conectar dispositivo
-                </p>
-                <div className="flex items-center justify-center gap-3 p-2 bg-blue-100 dark:bg-blue-900/50 rounded-md">
-                  <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
-                  <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                    Próxima verificação em
-                  </span>
-                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-lg">
-                    {countdown}
-                  </span>
-                  <span className="text-sm text-blue-600 dark:text-blue-400">
-                    segundo{countdown !== 1 ? 's' : ''}
-                  </span>
+              )}
+            </div>
+          )}
+
+          {/* Connection State */}
+          {connectionState && !justConnected && !evolutionConnected && (
+            <div className="p-4 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                {connectionState.state === "open" ? (
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-amber-600" />
+                )}
+                <span className="font-medium">
+                  {connectionState.state === "open" ? "Conectado" : "Desconectado"}
+                </span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Card de status do Webhook */}
+      {evolutionConnected && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between text-base">
+              <span className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Status do Webhook
+              </span>
+              <Badge 
+                variant={isWebhookConfigured ? "default" : "destructive"}
+                className={isWebhookConfigured ? "bg-green-600" : ""}
+              >
+                {checkingWebhook ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : isWebhookConfigured ? (
+                  <>
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Ativo
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-3 h-3 mr-1" />
+                    Inativo
+                  </>
+                )}
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              O webhook permite receber mensagens automaticamente no sistema
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isWebhookConfigured ? (
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 rounded-lg">
+                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-green-800 dark:text-green-200">
+                      Webhook configurado e funcionando
+                    </p>
+                    <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                      As mensagens recebidas no WhatsApp serão processadas automaticamente pelo sistema.
+                    </p>
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs text-green-600 dark:text-green-400 truncate">
+                        <strong>URL:</strong> {webhookInfo?.url}
+                      </p>
+                      <p className="text-xs text-green-600 dark:text-green-400">
+                        <strong>Eventos:</strong> {webhookInfo?.events?.join(", ") || "MESSAGES_UPSERT"}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg">
+                  <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-amber-800 dark:text-amber-200">
+                      Webhook não configurado
+                    </p>
+                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                      Configure o webhook para receber mensagens automaticamente no sistema.
+                    </p>
+                  </div>
+                </div>
+                
+                <Button 
+                  onClick={configureWebhook}
+                  disabled={configuringWebhook}
+                  className="w-full"
+                >
+                  {configuringWebhook ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Settings className="w-4 h-4 mr-2" />
+                  )}
+                  Configurar Webhook
+                </Button>
+              </div>
             )}
-          </div>
-        )}
 
-        {/* Connection State */}
-        {connectionState && !justConnected && (
-          <div className="p-4 bg-muted/50 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              {connectionState.state === "open" ? (
-                <CheckCircle className="w-4 h-4 text-green-600" />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={fetchWebhookStatus}
+              disabled={checkingWebhook}
+              className="w-full"
+            >
+              {checkingWebhook ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
-                <XCircle className="w-4 h-4 text-amber-600" />
+                <RefreshCw className="w-4 h-4 mr-2" />
               )}
-              <span className="font-medium">
-                {connectionState.state === "open" ? "Conectado" : "Desconectado"}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Webhook Status */}
-        {webhookConfigured && (
-          <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 rounded-lg">
-            <LinkIcon className="w-4 h-4 text-green-600" />
-            <span className="text-sm text-green-800 dark:text-green-200">
-              Webhook configurado - mensagens serão recebidas automaticamente
-            </span>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              Verificar Status do Webhook
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 };
 
