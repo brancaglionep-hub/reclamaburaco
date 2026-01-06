@@ -13,8 +13,8 @@ interface Prefeitura {
   logo_url: string | null;
 }
 
-// Memoized city card component
-const CityCard = memo(({ prefeitura, onClick }: { prefeitura: Prefeitura; onClick: () => void }) => (
+// Memoized city card component - usando função regular para evitar warning de forwardRef
+const CityCard = ({ prefeitura, onClick }: { prefeitura: Prefeitura; onClick: () => void }) => (
   <button
     onClick={onClick}
     className="group relative bg-card rounded-2xl border border-border p-6 text-left hover:border-primary hover:shadow-xl transition-all duration-300 overflow-hidden"
@@ -46,12 +46,10 @@ const CityCard = memo(({ prefeitura, onClick }: { prefeitura: Prefeitura; onClic
       <ChevronRight className="w-6 h-6 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-1 transition-all" />
     </div>
   </button>
-));
+);
 
-CityCard.displayName = "CityCard";
-
-// Feature card component
-const FeatureCard = memo(({ icon: Icon, title, description }: { icon: typeof Clock; title: string; description: string }) => (
+// Feature card component - usando função regular para evitar warning de forwardRef
+const FeatureCard = ({ icon: Icon, title, description }: { icon: typeof Clock; title: string; description: string }) => (
   <div className="text-center group">
     <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5 group-hover:bg-primary/20 transition-colors">
       <Icon className="w-10 h-10 text-primary" />
@@ -59,9 +57,7 @@ const FeatureCard = memo(({ icon: Icon, title, description }: { icon: typeof Clo
     <h4 className="font-bold text-foreground text-lg mb-2">{title}</h4>
     <p className="text-muted-foreground">{description}</p>
   </div>
-));
-
-FeatureCard.displayName = "FeatureCard";
+);
 
 const Home = () => {
   const navigate = useNavigate();
