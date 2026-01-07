@@ -17,6 +17,7 @@ const AdminPrefeituras = lazy(() => import("./pages/admin/AdminPrefeituras"));
 const AdminUsuarios = lazy(() => import("./pages/admin/AdminUsuarios"));
 const AdminCategorias = lazy(() => import("./pages/admin/AdminCategorias"));
 const AdminIntegracoes = lazy(() => import("./pages/admin/AdminIntegracoes"));
+const AdminWhatsAppBot = lazy(() => import("./pages/admin/AdminWhatsAppBot"));
 
 // Lazy load painel layout
 const PainelLayout = lazy(() => import("./components/painel/PainelLayout"));
@@ -77,6 +78,7 @@ const App = () => (
               <Route path="usuarios" element={<AdminUsuarios />} />
               <Route path="categorias" element={<AdminCategorias />} />
               <Route path="integracoes" element={<AdminIntegracoes />} />
+              <Route path="whatsapp-bot" element={<AdminWhatsAppBot />} />
             </Route>
             
             {/* Painel Prefeitura Routes */}
