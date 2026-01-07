@@ -179,7 +179,7 @@ const PainelReclamacaoDetalhe = () => {
               telefone: reclamacao.telefone_cidadao || null
             }
           });
-          console.log("Email notification sent successfully");
+          // Email notification sent successfully
         } catch (emailError) {
           console.error("Failed to send email notification:", emailError);
           // Don't fail the save if email fails
