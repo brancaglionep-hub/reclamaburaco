@@ -404,9 +404,15 @@ const EvolutionQrConnect = ({
     setDisconnecting(true);
     try {
       const response = await callEvolutionProxy(`/instance/logout/${instanceName}`, "DELETE");
+      const data = await response.json().catch(() => ({}));
       
-      if (!response.ok) {
-        const data = await response.json();
+      // Aceita 200 OK ou 400 "not connected" como sucesso (já está desconectado)
+      const isNotConnectedError = 
+        response.status === 400 && 
+        (data?.response?.message?.some?.((m: string) => m.includes("not connected")) ||
+         JSON.stringify(data).toLowerCase().includes("not connected"));
+
+      if (!response.ok && !isNotConnectedError) {
         throw new Error(data.error || "Erro ao desconectar");
       }
 
