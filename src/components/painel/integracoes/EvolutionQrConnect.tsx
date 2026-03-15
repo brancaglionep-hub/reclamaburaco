@@ -223,8 +223,8 @@ const EvolutionQrConnect = ({
     }
   }, [isGlobalConfigured, instanceName, onConfigUpdate]);
 
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (qrCode?.base64 && !evolutionConnected && !justConnected) {
