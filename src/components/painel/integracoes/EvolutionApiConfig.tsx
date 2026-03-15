@@ -206,7 +206,7 @@ const EvolutionApiConfig = ({ prefeituraId, config, onConfigUpdate }: EvolutionA
   }, [config.evolution_api_url, config.evolution_api_key, config.evolution_instance_name, onConfigUpdate]);
 
   // Auto-check connection every 30 seconds when QR code is displayed
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (qrCode?.base64 && !config.evolution_connected) {
